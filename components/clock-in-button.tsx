@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Clock, Coffee, LogOut, AlertCircle } from "lucide-react";
+import { Clock, Coffee, LogOut, AlertCircle, MapPin, Loader2 } from "lucide-react";
 
 interface ClockInButtonProps {
   activeTimeEntry: {
@@ -19,29 +19,72 @@ interface ClockInButtonProps {
 export function ClockInButton({ activeTimeEntry, todayShift }: ClockInButtonProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
+  const getCurrentPosition = useCallback((): Promise<{ latitude: number; longitude: number } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (err) => {
+          console.error("Geolocation error:", err);
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    });
+  }, []);
+
   const handleClockIn = async () => {
     setLoading(true);
+    setGettingLocation(true);
     setError(null);
+
     try {
+      // Get current position
+      const position = await getCurrentPosition();
+      setGettingLocation(false);
+
       const res = await fetch("/api/time-entries/clock-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shiftId: todayShift?.id }),
+        body: JSON.stringify({
+          shiftId: todayShift?.id,
+          latitude: position?.latitude,
+          longitude: position?.longitude,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
         router.refresh();
       } else {
-        setError(data.error || "Failed to clock in");
+        if (data.code === "LOCATION_REQUIRED") {
+          setError("Please enable location services in your browser to clock in.");
+        } else {
+          setError(data.error || "Failed to clock in");
+        }
       }
     } catch (err) {
       console.error("Clock in failed:", err);
       setError("Failed to clock in. Please try again.");
     } finally {
       setLoading(false);
+      setGettingLocation(false);
     }
   };
 
@@ -108,8 +151,22 @@ export function ClockInButton({ activeTimeEntry, todayShift }: ClockInButtonProp
           onClick={handleClockIn}
           disabled={loading}
         >
-          <Clock className="mr-2 h-5 w-5" />
-          {loading ? "Clocking in..." : "Clock In"}
+          {gettingLocation ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Getting location...
+            </>
+          ) : loading ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Clocking in...
+            </>
+          ) : (
+            <>
+              <Clock className="mr-2 h-5 w-5" />
+              Clock In
+            </>
+          )}
         </Button>
       </div>
     );

@@ -7,6 +7,7 @@ import { OrganizationForm } from "@/components/organization-form";
 import { ShiftCategoriesManager } from "@/components/shift-categories-manager";
 import { BreakRulesForm } from "@/components/break-rules-form";
 import { ClockSettingsForm } from "@/components/clock-settings-form";
+import { LocationSettingsForm } from "@/components/location-settings-form";
 
 async function getSettingsData(userId: string, organizationId: string) {
   const [user, organization] = await Promise.all([
@@ -30,6 +31,10 @@ async function getSettingsData(userId: string, organizationId: string) {
         clockInWindowMinutes: true,
         clockOutGraceMinutes: true,
         shiftReminderHours: true,
+        locationLatitude: true,
+        locationLongitude: true,
+        clockInRadiusMetres: true,
+        requireGeolocation: true,
       },
     }),
   ]);
@@ -141,6 +146,26 @@ export default async function SettingsPage() {
                 clockInWindowMinutes={organization.clockInWindowMinutes}
                 clockOutGraceMinutes={organization.clockOutGraceMinutes}
                 shiftReminderHours={organization.shiftReminderHours}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Location Settings (Admin only) */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Location Settings</CardTitle>
+              <CardDescription>
+                Configure geolocation requirements for clock-in
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LocationSettingsForm
+                locationLatitude={organization.locationLatitude}
+                locationLongitude={organization.locationLongitude}
+                clockInRadiusMetres={organization.clockInRadiusMetres}
+                requireGeolocation={organization.requireGeolocation}
               />
             </CardContent>
           </Card>

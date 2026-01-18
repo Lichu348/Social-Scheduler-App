@@ -21,6 +21,11 @@ model Organization {
   clockOutGraceMinutes  Int @default(30)
   // Shift reminder settings
   shiftReminderHours    Int @default(24)
+  // Geolocation settings
+  locationLatitude    Float?
+  locationLongitude   Float?
+  clockInRadiusMetres Int     @default(100)
+  requireGeolocation  Boolean @default(true)
 
   users           User[]
   shifts          Shift[]
@@ -143,6 +148,11 @@ model TimeEntry {
   status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  // Geolocation audit fields
+  clockInLatitude   Float?
+  clockInLongitude  Float?
+  clockOutLatitude  Float?
+  clockOutLongitude Float?
 
   userId String
   user   User   @relation(fields: [userId], references: [id])

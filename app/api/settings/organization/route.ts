@@ -21,6 +21,10 @@ export async function PATCH(req: Request) {
       clockInWindowMinutes,
       clockOutGraceMinutes,
       shiftReminderHours,
+      locationLatitude,
+      locationLongitude,
+      clockInRadiusMetres,
+      requireGeolocation,
     } = await req.json();
 
     const updatedOrg = await prisma.organization.update({
@@ -32,6 +36,10 @@ export async function PATCH(req: Request) {
         clockInWindowMinutes: clockInWindowMinutes !== undefined ? clockInWindowMinutes : undefined,
         clockOutGraceMinutes: clockOutGraceMinutes !== undefined ? clockOutGraceMinutes : undefined,
         shiftReminderHours: shiftReminderHours !== undefined ? shiftReminderHours : undefined,
+        locationLatitude: locationLatitude !== undefined ? locationLatitude : undefined,
+        locationLongitude: locationLongitude !== undefined ? locationLongitude : undefined,
+        clockInRadiusMetres: clockInRadiusMetres !== undefined ? clockInRadiusMetres : undefined,
+        requireGeolocation: requireGeolocation !== undefined ? requireGeolocation : undefined,
       },
     });
 
