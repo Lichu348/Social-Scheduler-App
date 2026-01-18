@@ -1,0 +1,161 @@
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { InviteUserDialog } from "@/components/invite-user-dialog";
+import { TeamMemberActions } from "@/components/team-member-actions";
+
+async function getTeamData(organizationId: string) {
+  const users = await prisma.user.findMany({
+    where: { organizationId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      phone: true,
+      holidayBalance: true,
+      createdAt: true,
+      _count: {
+        select: {
+          shifts: true,
+          timeEntries: true,
+        },
+      },
+    },
+    orderBy: [{ role: "asc" }, { name: "asc" }],
+  });
+
+  return users;
+}
+
+export default async function TeamPage() {
+  const session = await auth();
+  if (!session?.user) return null;
+
+  const isManager = session.user.role === "MANAGER" || session.user.role === "ADMIN";
+  const users = await getTeamData(session.user.organizationId);
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case "ADMIN":
+        return <Badge variant="default">Admin</Badge>;
+      case "MANAGER":
+        return <Badge variant="secondary">Manager</Badge>;
+      default:
+        return <Badge variant="outline">Employee</Badge>;
+    }
+  };
+
+  const admins = users.filter((u) => u.role === "ADMIN");
+  const managers = users.filter((u) => u.role === "MANAGER");
+  const employees = users.filter((u) => u.role === "EMPLOYEE");
+
+  return (
+    <div className="p-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Team</h1>
+          <p className="text-muted-foreground mt-1">
+            {isManager
+              ? "Manage your team members"
+              : "View your team"}
+          </p>
+        </div>
+        {isManager && <InviteUserDialog />}
+      </div>
+
+      {/* Team Stats */}
+      <div className="grid gap-4 md:grid-cols-4 mb-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Members</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{users.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Admins</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{admins.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Managers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{managers.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Employees</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{employees.length}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Team Members */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Team Members</CardTitle>
+          <CardDescription>All members of {session.user.organizationName}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {users.map((user) => (
+              <div
+                key={user.id}
+                className="flex items-center justify-between p-4 rounded-lg border"
+              >
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback className="text-lg">
+                      {user.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{user.name}</p>
+                      {getRoleBadge(user.role)}
+                      {user.id === session.user.id && (
+                        <Badge variant="outline" className="text-xs">You</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    {user.phone && (
+                      <p className="text-sm text-muted-foreground">{user.phone}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <p className="text-sm font-medium">{user._count.shifts}</p>
+                    <p className="text-xs text-muted-foreground">Shifts</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium">{user.holidayBalance}</p>
+                    <p className="text-xs text-muted-foreground">Holiday Days</p>
+                  </div>
+                  {isManager && user.id !== session.user.id && (
+                    <TeamMemberActions
+                      userId={user.id}
+                      currentRole={user.role}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

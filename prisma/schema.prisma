@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  timezone  String   @default("UTC")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Break rules: JSON array of { minHours, breakMinutes }
+  breakRules           String @default("[{\"minHours\":4,\"breakMinutes\":15},{\"minHours\":6,\"breakMinutes\":30},{\"minHours\":8,\"breakMinutes\":60}]")
+  // Clock-in/out window settings
+  clockInWindowMinutes  Int @default(15)
+  clockOutGraceMinutes  Int @default(30)
+  // Shift reminder settings
+  shiftReminderHours    Int @default(24)
+
+  users           User[]
+  shifts          Shift[]
+  shiftTemplates  ShiftTemplate[]
+  announcements   Announcement[]
+  shiftCategories ShiftCategory[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  password       String
+  role           String   @default("EMPLOYEE") // EMPLOYEE, MANAGER, ADMIN
+  avatarUrl      String?
+  phone          String?
+  holidayBalance Int      @default(25)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  shifts           Shift[]          @relation("AssignedShifts")
+  createdShifts    Shift[]          @relation("CreatedShifts")
+  timeEntries      TimeEntry[]
+  swapRequestsFrom SwapRequest[]    @relation("SwapFrom")
+  swapRequestsTo   SwapRequest[]    @relation("SwapTo")
+  holidayRequests  HolidayRequest[]
+  sentMessages     Message[]        @relation("SentMessages")
+  receivedMessages Message[]        @relation("ReceivedMessages")
+  messageReads     MessageRead[]
+  notifications    Notification[]
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model ShiftCategory {
+  id          String   @id @default(cuid())
+  name        String   // e.g., "Customer Service", "Coaching", "Setting"
+  hourlyRate  Float    // e.g., 15.50
+  color       String   @default("#3b82f6") // For calendar display
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  shifts Shift[]
+
+  @@index([organizationId])
+}
+
+model Shift {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  status      String   @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  isOpen      Boolean  @default(false)
+  scheduledBreakMinutes Int @default(0) // Auto-calculated from break rules
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedShifts", fields: [assignedToId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("CreatedShifts", fields: [createdById], references: [id])
+
+  templateId String?
+  template   ShiftTemplate? @relation(fields: [templateId], references: [id])
+
+  categoryId String?
+  category   ShiftCategory? @relation(fields: [categoryId], references: [id])
+
+  timeEntries  TimeEntry[]
+  swapRequests SwapRequest[]
+  messages     Message[]
+
+  @@index([organizationId])
+  @@index([assignedToId])
+  @@index([startTime, endTime])
+  @@index([categoryId])
+}
+
+model ShiftTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  startTime   String   // HH:mm format
+  endTime     String   // HH:mm format
+  daysOfWeek  String   // JSON array: "[0,1,2,3,4]" for weekdays
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  shifts Shift[]
+
+  @@index([organizationId])
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  clockIn     DateTime
+  clockOut    DateTime?
+  breakStart  DateTime?
+  breakEnd    DateTime?
+  totalBreak  Int      @default(0) // minutes
+  notes       String?
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  shiftId String?
+  shift   Shift?  @relation(fields: [shiftId], references: [id])
+
+  @@index([userId])
+  @@index([shiftId])
+  @@index([clockIn])
+}
+
+model SwapRequest {
+  id        String   @id @default(cuid())
+  type      String   // "swap" or "drop"
+  message   String?
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shiftId String
+  shift   Shift  @relation(fields: [shiftId], references: [id])
+
+  fromUserId String
+  fromUser   User   @relation("SwapFrom", fields: [fromUserId], references: [id])
+
+  toUserId String?
+  toUser   User?   @relation("SwapTo", fields: [toUserId], references: [id])
+
+  @@index([shiftId])
+  @@index([fromUserId])
+  @@index([toUserId])
+}
+
+model HolidayRequest {
+  id        String   @id @default(cuid())
+  startDate DateTime
+  endDate   DateTime
+  days      Int
+  reason    String?
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([startDate, endDate])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  senderId String
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id])
+
+  receiverId String?
+  receiver   User?   @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  shiftId String?
+  shift   Shift?  @relation(fields: [shiftId], references: [id])
+
+  reads MessageRead[]
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([shiftId])
+  @@index([createdAt])
+}
+
+model MessageRead {
+  id        String   @id @default(cuid())
+  readAt    DateTime @default(now())
+
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId])
+  @@index([userId])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  priority  Int      @default(0)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([expiresAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
