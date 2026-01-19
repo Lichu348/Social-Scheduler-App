@@ -1,11 +1,13 @@
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { InviteUserDialog } from "@/components/invite-user-dialog";
+import { Button } from "@/components/ui/button";
 import { TeamMemberActions } from "@/components/team-member-actions";
 import { StaffLocationsDialog } from "@/components/staff-locations-dialog";
+import { UserPlus } from "lucide-react";
 
 async function getTeamData(organizationId: string) {
   const [users, locations] = await Promise.all([
@@ -101,7 +103,14 @@ export default async function TeamPage() {
               : "View your team"}
           </p>
         </div>
-        {isManager && <InviteUserDialog />}
+        {isManager && (
+          <Link href="/dashboard/team/invite">
+            <Button>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add Team Member
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Team Stats */}
