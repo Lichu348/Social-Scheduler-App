@@ -129,8 +129,8 @@ export function ScheduleWithDnd({
     setDropDate(null);
   }, []);
 
-  // Show regular calendar for non-managers or while mounting
-  if (!isManager || !mounted) {
+  // Show regular calendar for non-managers
+  if (!isManager) {
     return (
       <ScheduleCalendar
         shifts={shifts}
@@ -138,6 +138,24 @@ export function ScheduleWithDnd({
         currentUserId={currentUserId}
         isManager={isManager}
       />
+    );
+  }
+
+  // For managers, show sidebar + calendar
+  // Wait for mount before enabling DnD features
+  if (!mounted) {
+    return (
+      <div className="flex gap-6">
+        <ShiftTemplateSidebar />
+        <div className="flex-1 min-w-0">
+          <ScheduleCalendar
+            shifts={shifts}
+            users={users}
+            currentUserId={currentUserId}
+            isManager={isManager}
+          />
+        </div>
+      </div>
     );
   }
 
