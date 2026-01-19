@@ -167,15 +167,37 @@ export function ShiftDetailDialog({
           <div className="flex items-center gap-3 text-sm">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span>
-              {formatTime(shift.startTime)} - {formatTime(shift.endTime)} ({hours.toFixed(1)} hours)
+              {formatTime(shift.startTime)} - {formatTime(shift.endTime)} ({hours.toFixed(1)} hours total)
             </span>
           </div>
-          {shift.scheduledBreakMinutes && shift.scheduledBreakMinutes > 0 && (
-            <div className="flex items-center gap-3 text-sm">
-              <Coffee className="h-4 w-4 text-muted-foreground" />
-              <span>{shift.scheduledBreakMinutes} min scheduled break</span>
+          {/* Hours breakdown box */}
+          <div className="p-3 bg-muted rounded-lg space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Shift duration:</span>
+              <span>{hours.toFixed(1)} hours</span>
             </div>
-          )}
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Coffee className="h-3 w-3" />
+                Unpaid break:
+              </span>
+              <span>{shift.scheduledBreakMinutes || 0} min</span>
+            </div>
+            <div className="flex justify-between text-sm font-medium border-t pt-1 mt-1">
+              <span>Paid hours:</span>
+              <span className="text-primary">
+                {(hours - (shift.scheduledBreakMinutes || 0) / 60).toFixed(1)} hours
+              </span>
+            </div>
+            {shift.category?.hourlyRate && (
+              <div className="flex justify-between text-sm font-medium text-green-600">
+                <span>Estimated pay:</span>
+                <span>
+                  ${((hours - (shift.scheduledBreakMinutes || 0) / 60) * shift.category.hourlyRate).toFixed(2)}
+                </span>
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-3 text-sm">
             <User className="h-4 w-4 text-muted-foreground" />
             <span>{shift.assignedTo?.name || "Unassigned"}</span>

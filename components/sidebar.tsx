@@ -18,6 +18,7 @@ import {
   Award,
   MapPin,
   FileSpreadsheet,
+  Coffee,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -42,6 +43,7 @@ const navigation = [
   { name: "Team", href: "/dashboard/team", icon: Users },
   { name: "Certifications", href: "/dashboard/certifications", icon: Award, managerOnly: true },
   { name: "Locations", href: "/dashboard/locations", icon: MapPin, managerOnly: true },
+  { name: "Break Rules", href: "/dashboard/break-rules", icon: Coffee, adminOnly: true },
   { name: "Export", href: "/dashboard/export", icon: FileSpreadsheet, managerOnly: true },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ] as const;
@@ -68,6 +70,9 @@ export function Sidebar({ user }: SidebarProps) {
       <nav className="flex-1 space-y-1 p-4">
         {navigation
           .filter((item) => {
+            if ('adminOnly' in item && item.adminOnly) {
+              return user.role === "ADMIN";
+            }
             if ('managerOnly' in item && item.managerOnly) {
               return user.role === "ADMIN" || user.role === "MANAGER";
             }

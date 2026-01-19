@@ -161,13 +161,22 @@ export function ScheduleCalendar({
                             <p className="opacity-80">
                               {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
                             </p>
-                            {shift.scheduledBreakMinutes && shift.scheduledBreakMinutes > 0 && (
-                              <p className="opacity-70 text-[10px]">
-                                {shift.scheduledBreakMinutes} min break
-                              </p>
-                            )}
+                            {/* Show hours breakdown with break */}
+                            {(() => {
+                              const totalHours = (new Date(shift.endTime).getTime() - new Date(shift.startTime).getTime()) / (1000 * 60 * 60);
+                              const breakHours = (shift.scheduledBreakMinutes || 0) / 60;
+                              const paidHours = totalHours - breakHours;
+                              return (
+                                <div className="mt-1 py-1 px-1.5 rounded bg-black/10 text-[10px]">
+                                  <span className="font-medium">{paidHours.toFixed(1)}h paid</span>
+                                  {breakHours > 0 && (
+                                    <span className="opacity-80"> ({shift.scheduledBreakMinutes}m break)</span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                             {shift.assignedTo && !isMyShift && (
-                              <p className="truncate opacity-70">
+                              <p className="truncate opacity-70 mt-1">
                                 {shift.assignedTo.name}
                               </p>
                             )}
