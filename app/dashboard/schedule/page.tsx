@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { ScheduleWithDnd } from "@/components/schedule-with-dnd";
+import { ScheduleCalendar } from "@/components/schedule-calendar";
 import { CreateShiftDialog } from "@/components/create-shift-dialog";
 import { LocationScheduleFilter } from "@/components/location-schedule-filter";
 
@@ -182,12 +182,11 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
         </div>
       )}
 
-      <ScheduleWithDnd
+      <ScheduleCalendar
         shifts={shifts}
         users={users}
         currentUserId={session.user.id}
         isManager={isManager}
-        locationId={currentLocationId}
       />
     </div>
   );
