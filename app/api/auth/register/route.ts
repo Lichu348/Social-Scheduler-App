@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
+
+// Public registration is disabled - staff are invited by admins only
+export async function POST() {
+  return NextResponse.json(
+    { error: "Public registration is disabled. Please contact your admin for an invitation." },
+    { status: 403 }
+  );
+}
+
+// Keep the old implementation commented for reference if needed later
+/*
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 
-export async function POST(req: Request) {
+export async function POST_DISABLED(req: Request) {
   console.log("Registration attempt started");
 
   try {
@@ -139,3 +150,4 @@ export async function POST(req: Request) {
     );
   }
 }
+*/
