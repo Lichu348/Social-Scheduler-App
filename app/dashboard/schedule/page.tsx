@@ -184,7 +184,11 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
       )}
 
       <div className="flex gap-6">
-        {isManager && <ShiftTemplateSidebar />}
+        {isManager ? (
+          <ShiftTemplateSidebar />
+        ) : (
+          <div className="p-4 bg-red-500 text-white">NOT A MANAGER</div>
+        )}
         <div className="flex-1 min-w-0">
           <ScheduleWithDnd
             shifts={shifts}
