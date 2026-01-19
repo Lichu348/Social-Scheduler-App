@@ -95,24 +95,36 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Registration error:", error);
 
+    // Get detailed error info
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : "Unknown";
+    console.error("Error details:", { name: errorName, message: errorMessage });
+
     // Check for specific Prisma errors
     if (error instanceof Error) {
-      if (error.message.includes("Unique constraint")) {
+      if (errorMessage.includes("Unique constraint")) {
         return NextResponse.json(
           { error: "An account with this email already exists" },
           { status: 400 }
         );
       }
-      if (error.message.includes("connect")) {
+      if (errorMessage.includes("connect") || errorMessage.includes("ECONNREFUSED")) {
         return NextResponse.json(
           { error: "Unable to connect to database. Please try again later." },
           { status: 503 }
         );
       }
+      if (errorMessage.includes("prepared statement") || errorMessage.includes("pgbouncer")) {
+        return NextResponse.json(
+          { error: "Database connection error. Please try again." },
+          { status: 503 }
+        );
+      }
     }
 
+    // Return the actual error message in development/for debugging
     return NextResponse.json(
-      { error: "Registration failed. Please check your details and try again." },
+      { error: `Registration failed: ${errorMessage}` },
       { status: 500 }
     );
   }
