@@ -142,7 +142,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
   // Determine which locations to show in dropdown
   // Admins/managers see all locations with "All Locations" option
   // Staff see only their assigned locations (no "All" option)
-  const showLocationDropdown = isAdmin || isManager || isMultiLocation;
+  const showLocationDropdown = allLocations.length > 0;
   const dropdownLocations = isAdmin || isManager ? allLocations : userLocations;
   const showAllOption = isAdmin || isManager;
 
@@ -158,7 +158,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {showLocationDropdown && dropdownLocations.length > 0 && (
+          {showLocationDropdown && (isAdmin || isManager || userLocations.length > 0) && (
             <LocationScheduleFilter
               locations={dropdownLocations}
               currentLocationId={currentLocationId || (showAllOption ? "all" : dropdownLocations[0]?.id || "")}
