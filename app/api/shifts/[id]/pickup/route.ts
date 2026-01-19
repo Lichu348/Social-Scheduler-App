@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { checkUserCertifications, formatCertificationError } from "@/lib/certification-utils";
 
 export async function POST(
   req: Request,
@@ -25,6 +26,20 @@ export async function POST(
     if (!shift.isOpen) {
       return NextResponse.json(
         { error: "Shift is not available for pickup" },
+        { status: 400 }
+      );
+    }
+
+    // Check certifications before allowing pickup
+    const certCheck = await checkUserCertifications(session.user.id, session.user.organizationId);
+    if (!certCheck.isValid) {
+      return NextResponse.json(
+        {
+          error: "Certification requirements not met",
+          certificationError: formatCertificationError(certCheck),
+          missingCertifications: certCheck.missingCertifications,
+          expiredCertifications: certCheck.expiredCertifications,
+        },
         { status: 400 }
       );
     }

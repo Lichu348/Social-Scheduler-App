@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Clock } from "lucide-react";
+import { Plus, Clock, AlertTriangle } from "lucide-react";
 
 interface User {
   id: string;
@@ -42,6 +42,13 @@ interface Location {
   name: string;
 }
 
+interface CertificationWarning {
+  isValid: boolean;
+  errorMessage: string | null;
+  missingCertifications: { id: string; name: string }[];
+  expiredCertifications: { id: string; name: string }[];
+}
+
 interface CreateShiftDialogProps {
   users: User[];
   breakRules?: string;
@@ -54,6 +61,8 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<ShiftCategory[]>([]);
+  const [certWarning, setCertWarning] = useState<CertificationWarning | null>(null);
+  const [checkingCerts, setCheckingCerts] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -111,6 +120,30 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
     };
     fetchCategories();
   }, []);
+
+  // Check certifications when user selection changes
+  useEffect(() => {
+    const checkCertifications = async () => {
+      if (!formData.assignedToId) {
+        setCertWarning(null);
+        return;
+      }
+
+      setCheckingCerts(true);
+      try {
+        const res = await fetch(`/api/certifications/check?userId=${formData.assignedToId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setCertWarning(data);
+        }
+      } catch (error) {
+        console.error("Failed to check certifications:", error);
+      } finally {
+        setCheckingCerts(false);
+      }
+    };
+    checkCertifications();
+  }, [formData.assignedToId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,6 +316,28 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
                 }
               />
             </div>
+            {/* Certification warning */}
+            {checkingCerts && (
+              <div className="text-sm text-muted-foreground">
+                Checking certifications...
+              </div>
+            )}
+            {certWarning && !certWarning.isValid && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-sm">
+                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium text-amber-800 dark:text-amber-200">
+                    Certification Warning
+                  </p>
+                  <p className="text-amber-700 dark:text-amber-300">
+                    {certWarning.errorMessage}
+                  </p>
+                  <p className="text-amber-600 dark:text-amber-400 text-xs">
+                    This staff member cannot be assigned to shifts until certifications are up to date.
+                  </p>
+                </div>
+              </div>
+            )}
             {/* Show calculated break time */}
             {shiftDuration > 0 && (
               <div className="flex items-center gap-2 p-3 bg-muted rounded-md text-sm">
@@ -302,7 +357,7 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || (certWarning !== null && !certWarning.isValid)}>
               {loading ? "Creating..." : "Create Shift"}
             </Button>
           </DialogFooter>

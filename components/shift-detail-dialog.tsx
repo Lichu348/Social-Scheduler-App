@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDate, formatTime, calculateHours } from "@/lib/utils";
-import { Calendar, Clock, User, ArrowLeftRight, Trash2, Coffee, Tag, DollarSign } from "lucide-react";
+import { Calendar, Clock, User, ArrowLeftRight, Trash2, Coffee, Tag, DollarSign, AlertTriangle } from "lucide-react";
 
 interface ShiftCategory {
   id: string;
@@ -43,6 +43,13 @@ interface User {
   role: string;
 }
 
+interface CertificationWarning {
+  isValid: boolean;
+  errorMessage: string | null;
+  missingCertifications: { id: string; name: string }[];
+  expiredCertifications: { id: string; name: string }[];
+}
+
 interface ShiftDetailDialogProps {
   shift: Shift;
   users: User[];
@@ -61,9 +68,36 @@ export function ShiftDetailDialog({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [newAssignee, setNewAssignee] = useState(shift.assignedTo?.id || "");
+  const [certWarning, setCertWarning] = useState<CertificationWarning | null>(null);
+  const [checkingCerts, setCheckingCerts] = useState(false);
 
   const isMyShift = shift.assignedTo?.id === currentUserId;
   const hours = calculateHours(shift.startTime, shift.endTime);
+
+  // Check certifications when reassignment selection changes
+  useEffect(() => {
+    const checkCertifications = async () => {
+      // Only check if selecting a new user (not unassigning)
+      if (!newAssignee || newAssignee === shift.assignedTo?.id) {
+        setCertWarning(null);
+        return;
+      }
+
+      setCheckingCerts(true);
+      try {
+        const res = await fetch(`/api/certifications/check?userId=${newAssignee}`);
+        if (res.ok) {
+          const data = await res.json();
+          setCertWarning(data);
+        }
+      } catch (error) {
+        console.error("Failed to check certifications:", error);
+      } finally {
+        setCheckingCerts(false);
+      }
+    };
+    checkCertifications();
+  }, [newAssignee, shift.assignedTo?.id]);
 
   const handlePickupShift = async () => {
     setLoading(true);
@@ -234,6 +268,28 @@ export function ShiftDetailDialog({
                 value={newAssignee}
                 onChange={(e) => setNewAssignee(e.target.value)}
               />
+              {/* Certification warning */}
+              {checkingCerts && (
+                <div className="text-sm text-muted-foreground">
+                  Checking certifications...
+                </div>
+              )}
+              {certWarning && !certWarning.isValid && (
+                <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-sm">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-amber-800 dark:text-amber-200">
+                      Certification Warning
+                    </p>
+                    <p className="text-amber-700 dark:text-amber-300">
+                      {certWarning.errorMessage}
+                    </p>
+                    <p className="text-amber-600 dark:text-amber-400 text-xs">
+                      This staff member cannot be assigned until certifications are up to date.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -260,7 +316,7 @@ export function ShiftDetailDialog({
               <Button
                 variant="outline"
                 onClick={handleReassign}
-                disabled={loading || newAssignee === (shift.assignedTo?.id || "")}
+                disabled={loading || newAssignee === (shift.assignedTo?.id || "") || (certWarning !== null && !certWarning.isValid)}
                 className="w-full sm:w-auto"
               >
                 Reassign

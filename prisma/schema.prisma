@@ -35,6 +35,7 @@ model Organization {
   shiftCategories    ShiftCategory[]
   locations          Location[]
   certificationTypes CertificationType[]
+  trainingDocuments  TrainingDocument[]
 }
 
 model User {
@@ -70,6 +71,7 @@ model User {
   certifications   UserCertification[]
   availability     StaffAvailability[]
   locationAccess   LocationStaff[]
+  trainingSignoffs TrainingSignoff[]
 
   @@index([organizationId])
   @@index([email])
@@ -352,6 +354,7 @@ model UserCertification {
   certificateNumber String?
   notes         String?
   status        String    @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  lastExpiryNotification DateTime? // Track when we last notified about expiry
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -383,4 +386,43 @@ model StaffAvailability {
 
   @@index([userId])
   @@index([dayOfWeek])
+}
+
+// Training documents
+model TrainingDocument {
+  id              String   @id @default(cuid())
+  title           String   // "Fire Safety Training"
+  description     String?
+  fileUrl         String   // URL to uploaded PDF/document
+  fileName        String   // Original filename
+  validityMonths  Int      @default(12)  // How often staff must re-sign
+  isRequired      Boolean  @default(false)
+  requiredForRoles String  @default("[]")  // JSON array: ["COACH", "DESK"]
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
+  signoffs        TrainingSignoff[]
+
+  @@index([organizationId])
+}
+
+model TrainingSignoff {
+  id              String   @id @default(cuid())
+  signedAt        DateTime @default(now())
+  expiresAt       DateTime // Auto-calculated from validityMonths
+  signature       String?  // Optional: typed name or drawn signature data
+
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+
+  documentId      String
+  document        TrainingDocument @relation(fields: [documentId], references: [id])
+
+  @@unique([userId, documentId])  // One active signoff per user per doc
+  @@index([userId])
+  @@index([expiresAt])
 }

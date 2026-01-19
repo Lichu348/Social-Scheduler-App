@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { checkUserCertifications, formatCertificationError } from "@/lib/certification-utils";
 
 export async function GET(req: Request) {
   try {
@@ -85,6 +86,22 @@ export async function POST(req: Request) {
         { error: "Title, start time, and end time are required" },
         { status: 400 }
       );
+    }
+
+    // Check certifications if assigning to a user
+    if (assignedToId) {
+      const certCheck = await checkUserCertifications(assignedToId, session.user.organizationId);
+      if (!certCheck.isValid) {
+        return NextResponse.json(
+          {
+            error: "Certification requirements not met",
+            certificationError: formatCertificationError(certCheck),
+            missingCertifications: certCheck.missingCertifications,
+            expiredCertifications: certCheck.expiredCertifications,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Get organization break rules
