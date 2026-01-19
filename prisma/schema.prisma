@@ -90,7 +90,8 @@ model ShiftCategory {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
 
-  shifts Shift[]
+  shifts    Shift[]
+  templates ShiftTemplate[]
 
   @@index([organizationId])
 }
@@ -137,22 +138,27 @@ model Shift {
 }
 
 model ShiftTemplate {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  startTime   String   // HH:mm format
-  endTime     String   // HH:mm format
-  daysOfWeek  String   // JSON array: "[0,1,2,3,4]" for weekdays
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  defaultTitle String?  // Default title for shifts created from this template
+  startTime    String   // HH:mm format
+  endTime      String   // HH:mm format
+  daysOfWeek   String   @default("[]") // JSON array: "[0,1,2,3,4]" for weekdays
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
 
+  categoryId String?
+  category   ShiftCategory? @relation(fields: [categoryId], references: [id])
+
   shifts Shift[]
 
   @@index([organizationId])
+  @@index([categoryId])
 }
 
 model TimeEntry {
