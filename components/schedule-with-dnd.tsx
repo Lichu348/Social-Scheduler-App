@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -15,6 +15,7 @@ import { ShiftTemplateSidebar } from "./shift-template-sidebar";
 import { ScheduleCalendarWithDrop } from "./schedule-calendar-with-drop";
 import { QuickAssignDialog } from "./quick-assign-dialog";
 import { DraggableTemplateOverlay } from "./draggable-template";
+import { ScheduleCalendar } from "./schedule-calendar";
 
 interface ShiftCategory {
   id: string;
@@ -68,10 +69,16 @@ export function ScheduleWithDnd({
   isManager,
   locationId,
 }: ScheduleWithDndProps) {
+  const [mounted, setMounted] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<ShiftTemplate | null>(null);
   const [quickAssignOpen, setQuickAssignOpen] = useState(false);
   const [dropTemplate, setDropTemplate] = useState<ShiftTemplate | null>(null);
   const [dropDate, setDropDate] = useState<Date | null>(null);
+
+  // Ensure component only renders DnD on client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Configure sensors for better drag experience
   const mouseSensor = useSensor(MouseSensor, {
@@ -122,15 +129,14 @@ export function ScheduleWithDnd({
     setDropDate(null);
   }, []);
 
-  // Only show sidebar for managers
-  if (!isManager) {
+  // Show regular calendar for non-managers or while mounting
+  if (!isManager || !mounted) {
     return (
-      <ScheduleCalendarWithDrop
+      <ScheduleCalendar
         shifts={shifts}
         users={users}
         currentUserId={currentUserId}
         isManager={isManager}
-        enableDroppable={false}
       />
     );
   }
