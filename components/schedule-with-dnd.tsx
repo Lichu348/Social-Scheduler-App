@@ -129,8 +129,8 @@ export function ScheduleWithDnd({
     setDropDate(null);
   }, []);
 
-  // Show regular calendar for non-managers
-  if (!isManager) {
+  // Show regular calendar for non-managers or while not mounted
+  if (!isManager || !mounted) {
     return (
       <ScheduleCalendar
         shifts={shifts}
@@ -141,24 +141,7 @@ export function ScheduleWithDnd({
     );
   }
 
-  // For managers, show sidebar + calendar
-  // Wait for mount before enabling DnD features
-  if (!mounted) {
-    return (
-      <div className="flex gap-6">
-        <ShiftTemplateSidebar />
-        <div className="flex-1 min-w-0">
-          <ScheduleCalendar
-            shifts={shifts}
-            users={users}
-            currentUserId={currentUserId}
-            isManager={isManager}
-          />
-        </div>
-      </div>
-    );
-  }
-
+  // For managers after mount, enable DnD on calendar
   return (
     <DndContext
       sensors={sensors}
@@ -166,19 +149,13 @@ export function ScheduleWithDnd({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-6">
-        <ShiftTemplateSidebar />
-
-        <div className="flex-1 min-w-0">
-          <ScheduleCalendarWithDrop
-            shifts={shifts}
-            users={users}
-            currentUserId={currentUserId}
-            isManager={isManager}
-            enableDroppable={true}
-          />
-        </div>
-      </div>
+      <ScheduleCalendarWithDrop
+        shifts={shifts}
+        users={users}
+        currentUserId={currentUserId}
+        isManager={isManager}
+        enableDroppable={true}
+      />
 
       {/* Drag overlay for better visual feedback */}
       <DragOverlay>
