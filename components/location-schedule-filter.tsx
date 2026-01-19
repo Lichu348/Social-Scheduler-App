@@ -12,9 +12,14 @@ interface Location {
 interface LocationScheduleFilterProps {
   locations: Location[];
   currentLocationId: string;
+  showAllOption?: boolean;
 }
 
-export function LocationScheduleFilter({ locations, currentLocationId }: LocationScheduleFilterProps) {
+export function LocationScheduleFilter({
+  locations,
+  currentLocationId,
+  showAllOption = true,
+}: LocationScheduleFilterProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -28,7 +33,7 @@ export function LocationScheduleFilter({ locations, currentLocationId }: Locatio
   };
 
   const options = [
-    { value: "all", label: "All Locations" },
+    ...(showAllOption ? [{ value: "all", label: "All Locations" }] : []),
     ...locations.map((loc) => ({ value: loc.id, label: loc.name })),
   ];
 

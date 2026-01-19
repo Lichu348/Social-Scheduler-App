@@ -12,26 +12,56 @@ async function getScheduleData(organizationId: string, userId: string, role: str
   const endOfMonth = new Date(startOfMonth);
   endOfMonth.setMonth(endOfMonth.getMonth() + 2);
 
-  // Get user's primary location for non-admins
+  // Get user's assigned locations (via LocationStaff)
   const currentUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { primaryLocationId: true },
+    select: {
+      primaryLocationId: true,
+      locationAccess: {
+        select: {
+          location: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+    },
   });
+
+  // Get list of locations this user can access
+  const userLocationIds = currentUser?.locationAccess.map((la) => la.location.id) || [];
+  const userLocations = currentUser?.locationAccess.map((la) => la.location) || [];
 
   // Determine which location to filter by
   let filterLocationId: string | null = null;
-  if (role === "ADMIN" && locationId) {
-    filterLocationId = locationId === "all" ? null : locationId;
-  } else if (role !== "ADMIN") {
-    filterLocationId = currentUser?.primaryLocationId || null;
+  const isAdmin = role === "ADMIN";
+  const isManager = role === "MANAGER";
+
+  if (isAdmin || isManager) {
+    // Admins/managers can view all or filter by specific location
+    filterLocationId = locationId && locationId !== "all" ? locationId : null;
+  } else if (userLocationIds.length > 0) {
+    // Staff can only see their assigned locations
+    if (locationId && userLocationIds.includes(locationId)) {
+      filterLocationId = locationId;
+    } else {
+      // Default to first assigned location
+      filterLocationId = userLocationIds[0];
+    }
   }
 
-  const [shifts, users, organization, locations] = await Promise.all([
+  // For non-admin/manager, restrict to their assigned locations if no specific filter
+  const locationFilter = isAdmin || isManager
+    ? (filterLocationId ? { locationId: filterLocationId } : {})
+    : (filterLocationId
+      ? { locationId: filterLocationId }
+      : (userLocationIds.length > 0 ? { locationId: { in: userLocationIds } } : {}));
+
+  const [shifts, users, organization, allLocations] = await Promise.all([
     prisma.shift.findMany({
       where: {
         organizationId,
         startTime: { gte: startOfMonth, lt: endOfMonth },
-        ...(filterLocationId ? { locationId: filterLocationId } : {}),
+        ...locationFilter,
       },
       include: {
         assignedTo: {
@@ -49,7 +79,9 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     prisma.user.findMany({
       where: {
         organizationId,
-        ...(filterLocationId ? { primaryLocationId: filterLocationId } : {}),
+        ...(filterLocationId ? {
+          locationAccess: { some: { locationId: filterLocationId } },
+        } : {}),
       },
       select: { id: true, name: true, email: true, role: true, staffRole: true },
       orderBy: { name: "asc" },
@@ -69,9 +101,11 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     shifts,
     users,
     breakRules: organization?.breakRules || "",
-    locations,
+    allLocations, // All locations for admins/managers
+    userLocations, // User's assigned locations for staff dropdown
     currentLocationId: filterLocationId,
-    userLocationId: currentUser?.primaryLocationId,
+    userLocationIds,
+    isMultiLocation: userLocationIds.length > 1,
   };
 }
 
@@ -86,7 +120,16 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
   const params = await searchParams;
   const locationId = params.location;
 
-  const { shifts, users, breakRules, locations, currentLocationId, userLocationId } = await getScheduleData(
+  const {
+    shifts,
+    users,
+    breakRules,
+    allLocations,
+    userLocations,
+    currentLocationId,
+    userLocationIds,
+    isMultiLocation,
+  } = await getScheduleData(
     session.user.organizationId,
     session.user.id,
     session.user.role,
@@ -95,6 +138,13 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
 
   const isManager = session.user.role === "MANAGER" || session.user.role === "ADMIN";
   const isAdmin = session.user.role === "ADMIN";
+
+  // Determine which locations to show in dropdown
+  // Admins/managers see all locations with "All Locations" option
+  // Staff see only their assigned locations (no "All" option)
+  const showLocationDropdown = isAdmin || isManager || isMultiLocation;
+  const dropdownLocations = isAdmin || isManager ? allLocations : userLocations;
+  const showAllOption = isAdmin || isManager;
 
   return (
     <div className="p-8">
@@ -108,26 +158,27 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {isAdmin && locations.length > 0 && (
+          {showLocationDropdown && dropdownLocations.length > 0 && (
             <LocationScheduleFilter
-              locations={locations}
-              currentLocationId={locationId || "all"}
+              locations={dropdownLocations}
+              currentLocationId={currentLocationId || (showAllOption ? "all" : dropdownLocations[0]?.id || "")}
+              showAllOption={showAllOption}
             />
           )}
           {isManager && (
             <CreateShiftDialog
               users={users}
               breakRules={breakRules}
-              locations={locations}
+              locations={allLocations}
               defaultLocationId={currentLocationId}
             />
           )}
         </div>
       </div>
 
-      {!isAdmin && !userLocationId && locations.length > 0 && (
+      {!isAdmin && !isManager && userLocationIds.length === 0 && allLocations.length > 0 && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-          You haven't been assigned to a location yet. Contact your admin to be assigned.
+          You haven't been assigned to any locations yet. Contact your admin to be assigned.
         </div>
       )}
 

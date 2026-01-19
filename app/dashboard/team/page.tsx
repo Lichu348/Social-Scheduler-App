@@ -5,34 +5,46 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { InviteUserDialog } from "@/components/invite-user-dialog";
 import { TeamMemberActions } from "@/components/team-member-actions";
+import { StaffLocationsDialog } from "@/components/staff-locations-dialog";
 
 async function getTeamData(organizationId: string) {
-  const users = await prisma.user.findMany({
-    where: { organizationId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      staffRole: true,
-      phone: true,
-      holidayBalance: true,
-      createdAt: true,
-      primaryLocation: {
-        select: { id: true, name: true },
-      },
-      _count: {
-        select: {
-          shifts: true,
-          timeEntries: true,
-          certifications: true,
+  const [users, locations] = await Promise.all([
+    prisma.user.findMany({
+      where: { organizationId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        staffRole: true,
+        phone: true,
+        holidayBalance: true,
+        createdAt: true,
+        locationAccess: {
+          select: {
+            location: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+        _count: {
+          select: {
+            shifts: true,
+            timeEntries: true,
+            certifications: true,
+          },
         },
       },
-    },
-    orderBy: [{ role: "asc" }, { name: "asc" }],
-  });
+      orderBy: [{ role: "asc" }, { name: "asc" }],
+    }),
+    prisma.location.findMany({
+      where: { organizationId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
-  return users;
+  return { users, locations };
 }
 
 export default async function TeamPage() {
@@ -40,7 +52,8 @@ export default async function TeamPage() {
   if (!session?.user) return null;
 
   const isManager = session.user.role === "MANAGER" || session.user.role === "ADMIN";
-  const users = await getTeamData(session.user.organizationId);
+  const isAdmin = session.user.role === "ADMIN";
+  const { users, locations } = await getTeamData(session.user.organizationId);
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -158,10 +171,10 @@ export default async function TeamPage() {
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       {user.phone && <span>{user.phone}</span>}
-                      {user.primaryLocation && (
+                      {user.locationAccess.length > 0 && (
                         <span className="flex items-center gap-1">
                           {user.phone && <span>•</span>}
-                          {user.primaryLocation.name}
+                          {user.locationAccess.map((la) => la.location.name).join(", ")}
                         </span>
                       )}
                     </div>
@@ -176,6 +189,14 @@ export default async function TeamPage() {
                     <p className="text-sm font-medium">{user.holidayBalance}</p>
                     <p className="text-xs text-muted-foreground">Holiday Days</p>
                   </div>
+                  {isAdmin && locations.length > 0 && (
+                    <StaffLocationsDialog
+                      userId={user.id}
+                      userName={user.name}
+                      assignedLocationIds={user.locationAccess.map((la) => la.location.id)}
+                      allLocations={locations}
+                    />
+                  )}
                   {isManager && user.id !== session.user.id && (
                     <TeamMemberActions
                       userId={user.id}
