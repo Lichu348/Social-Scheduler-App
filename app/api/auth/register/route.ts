@@ -3,8 +3,13 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 
 export async function POST(req: Request) {
+  console.log("Registration attempt started");
+
   try {
-    const { name, email, password, organizationName } = await req.json();
+    const body = await req.json();
+    console.log("Request body received:", { ...body, password: "[REDACTED]" });
+
+    const { name, email, password, organizationName } = body;
 
     // Validate required fields with specific messages
     if (!name || name.trim().length === 0) {
@@ -64,9 +69,12 @@ export async function POST(req: Request) {
     }
 
     // Hash password
+    console.log("Hashing password...");
     const hashedPassword = await hash(password, 12);
+    console.log("Password hashed successfully");
 
     // Create organization and user
+    console.log("Creating organization and user...");
     const organization = await prisma.organization.create({
       data: {
         name: organizationName.trim(),
@@ -83,6 +91,8 @@ export async function POST(req: Request) {
         users: true,
       },
     });
+
+    console.log("Organization created:", organization.id);
 
     return NextResponse.json({
       message: "Registration successful",
