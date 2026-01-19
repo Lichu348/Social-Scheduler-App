@@ -6,21 +6,59 @@ export async function POST(req: Request) {
   try {
     const { name, email, password, organizationName } = await req.json();
 
-    if (!name || !email || !password || !organizationName) {
+    // Validate required fields with specific messages
+    if (!name || name.trim().length === 0) {
       return NextResponse.json(
-        { error: "All fields are required" },
+        { error: "Full name is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!email || email.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Email address is required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address" },
+        { status: 400 }
+      );
+    }
+
+    if (!organizationName || organizationName.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Organization name is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!password) {
+      return NextResponse.json(
+        { error: "Password is required" },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: "Password must be at least 6 characters long" },
         { status: 400 }
       );
     }
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email.toLowerCase().trim() },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Email already registered" },
+        { error: "An account with this email already exists. Please sign in instead." },
         { status: 400 }
       );
     }
@@ -31,11 +69,11 @@ export async function POST(req: Request) {
     // Create organization and user
     const organization = await prisma.organization.create({
       data: {
-        name: organizationName,
+        name: organizationName.trim(),
         users: {
           create: {
-            name,
-            email,
+            name: name.trim(),
+            email: email.toLowerCase().trim(),
             password: hashedPassword,
             role: "ADMIN", // First user is admin
           },
@@ -56,8 +94,25 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Registration error:", error);
+
+    // Check for specific Prisma errors
+    if (error instanceof Error) {
+      if (error.message.includes("Unique constraint")) {
+        return NextResponse.json(
+          { error: "An account with this email already exists" },
+          { status: 400 }
+        );
+      }
+      if (error.message.includes("connect")) {
+        return NextResponse.json(
+          { error: "Unable to connect to database. Please try again later." },
+          { status: 503 }
+        );
+      }
+    }
+
     return NextResponse.json(
-      { error: "Something went wrong" },
+      { error: "Registration failed. Please check your details and try again." },
       { status: 500 }
     );
   }
