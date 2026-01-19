@@ -14,6 +14,9 @@ import {
   LogOut,
   Home,
   ArrowLeftRight,
+  CalendarClock,
+  Award,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -31,12 +34,15 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Schedule", href: "/dashboard/schedule", icon: Calendar },
   { name: "Timesheet", href: "/dashboard/timesheet", icon: Clock },
+  { name: "Availability", href: "/dashboard/availability", icon: CalendarClock },
   { name: "Shift Swaps", href: "/dashboard/swaps", icon: ArrowLeftRight },
   { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
   { name: "Holidays", href: "/dashboard/holidays", icon: Palmtree },
   { name: "Team", href: "/dashboard/team", icon: Users },
+  { name: "Certifications", href: "/dashboard/certifications", icon: Award, adminOnly: true },
+  { name: "Locations", href: "/dashboard/locations", icon: MapPin, adminOnly: true },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
-];
+] as const;
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
@@ -58,25 +64,27 @@ export function Sidebar({ user }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-4">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <item.icon className="h-5 w-5" />
-              {item.name}
-            </Link>
-          );
-        })}
+        {navigation
+          .filter((item) => !('adminOnly' in item && item.adminOnly) || user.role === "ADMIN")
+          .map((item) => {
+            const isActive = pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                {item.name}
+              </Link>
+            );
+          })}
       </nav>
 
       {/* User section */}
