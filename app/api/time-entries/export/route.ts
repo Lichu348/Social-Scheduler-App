@@ -18,6 +18,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const locationId = searchParams.get("locationId");
     const format = searchParams.get("format") || "xlsx";
 
     if (!startDate || !endDate) {
@@ -38,6 +39,7 @@ export async function GET(req: Request) {
       where: {
         user: {
           organizationId: session.user.organizationId,
+          ...(locationId ? { primaryLocationId: locationId } : {}),
         },
         clockIn: {
           gte: start,
@@ -47,12 +49,15 @@ export async function GET(req: Request) {
       },
       include: {
         user: {
-          select: { name: true, email: true },
+          select: { name: true, email: true, primaryLocation: { select: { name: true } } },
         },
         shift: {
           include: {
             category: {
               select: { name: true, hourlyRate: true },
+            },
+            location: {
+              select: { name: true },
             },
           },
         },
@@ -80,6 +85,7 @@ export async function GET(req: Request) {
       return {
         "Employee Name": entry.user.name,
         "Employee Email": entry.user.email,
+        Location: entry.user.primaryLocation?.name || entry.shift?.location?.name || "Unassigned",
         Date: clockIn.toLocaleDateString(),
         "Clock In": clockIn.toLocaleTimeString(),
         "Clock Out": clockOut?.toLocaleTimeString() || "",
@@ -102,6 +108,7 @@ export async function GET(req: Request) {
     const colWidths = [
       { wch: 20 }, // Employee Name
       { wch: 25 }, // Employee Email
+      { wch: 18 }, // Location
       { wch: 12 }, // Date
       { wch: 12 }, // Clock In
       { wch: 12 }, // Clock Out

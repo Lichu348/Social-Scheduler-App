@@ -17,6 +17,7 @@ import {
   CalendarClock,
   Award,
   MapPin,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -39,8 +40,9 @@ const navigation = [
   { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
   { name: "Holidays", href: "/dashboard/holidays", icon: Palmtree },
   { name: "Team", href: "/dashboard/team", icon: Users },
-  { name: "Certifications", href: "/dashboard/certifications", icon: Award, adminOnly: true },
-  { name: "Locations", href: "/dashboard/locations", icon: MapPin, adminOnly: true },
+  { name: "Certifications", href: "/dashboard/certifications", icon: Award, managerOnly: true },
+  { name: "Locations", href: "/dashboard/locations", icon: MapPin, managerOnly: true },
+  { name: "Export", href: "/dashboard/export", icon: FileSpreadsheet, managerOnly: true },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ] as const;
 
@@ -65,7 +67,12 @@ export function Sidebar({ user }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-4">
         {navigation
-          .filter((item) => !('adminOnly' in item && item.adminOnly) || user.role === "ADMIN")
+          .filter((item) => {
+            if ('managerOnly' in item && item.managerOnly) {
+              return user.role === "ADMIN" || user.role === "MANAGER";
+            }
+            return true;
+          })
           .map((item) => {
             const isActive = pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));

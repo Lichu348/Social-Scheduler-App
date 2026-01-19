@@ -37,12 +37,19 @@ interface BreakRule {
   breakMinutes: number;
 }
 
+interface Location {
+  id: string;
+  name: string;
+}
+
 interface CreateShiftDialogProps {
   users: User[];
   breakRules?: string;
+  locations?: Location[];
+  defaultLocationId?: string | null;
 }
 
-export function CreateShiftDialog({ users, breakRules }: CreateShiftDialogProps) {
+export function CreateShiftDialog({ users, breakRules, locations = [], defaultLocationId }: CreateShiftDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -55,6 +62,7 @@ export function CreateShiftDialog({ users, breakRules }: CreateShiftDialogProps)
     endTime: "",
     assignedToId: "",
     categoryId: "",
+    locationId: defaultLocationId || "",
   });
 
   // Parse break rules
@@ -122,6 +130,7 @@ export function CreateShiftDialog({ users, breakRules }: CreateShiftDialogProps)
           endTime: endDateTime.toISOString(),
           assignedToId: formData.assignedToId || null,
           categoryId: formData.categoryId || null,
+          locationId: formData.locationId || null,
         }),
       });
 
@@ -135,6 +144,7 @@ export function CreateShiftDialog({ users, breakRules }: CreateShiftDialogProps)
           endTime: "",
           assignedToId: "",
           categoryId: "",
+          locationId: defaultLocationId || "",
         });
         router.refresh();
       }
@@ -153,6 +163,11 @@ export function CreateShiftDialog({ users, breakRules }: CreateShiftDialogProps)
   const categoryOptions = [
     { value: "", label: "No Category" },
     ...categories.map((cat) => ({ value: cat.id, label: `${cat.name} ($${cat.hourlyRate.toFixed(2)}/hr)` })),
+  ];
+
+  const locationOptions = [
+    { value: "", label: "No Location" },
+    ...locations.map((loc) => ({ value: loc.id, label: loc.name })),
   ];
 
   return (
@@ -233,6 +248,19 @@ export function CreateShiftDialog({ users, breakRules }: CreateShiftDialogProps)
                 />
               </div>
             </div>
+            {locations.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Select
+                  id="location"
+                  options={locationOptions}
+                  value={formData.locationId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, locationId: e.target.value })
+                  }
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
               <Select

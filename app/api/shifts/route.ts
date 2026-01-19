@@ -78,7 +78,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { title, description, startTime, endTime, assignedToId, categoryId } = await req.json();
+    const { title, description, startTime, endTime, assignedToId, categoryId, locationId } = await req.json();
 
     if (!title || !startTime || !endTime) {
       return NextResponse.json(
@@ -112,6 +112,7 @@ export async function POST(req: Request) {
         assignedToId: assignedToId || null,
         isOpen: !assignedToId,
         categoryId: categoryId || null,
+        locationId: locationId || null,
         scheduledBreakMinutes,
       },
       include: {
