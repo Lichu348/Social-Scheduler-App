@@ -27,11 +27,13 @@ model Organization {
   clockInRadiusMetres Int     @default(100)
   requireGeolocation  Boolean @default(true)
 
-  users           User[]
-  shifts          Shift[]
-  shiftTemplates  ShiftTemplate[]
-  announcements   Announcement[]
-  shiftCategories ShiftCategory[]
+  users              User[]
+  shifts             Shift[]
+  shiftTemplates     ShiftTemplate[]
+  announcements      Announcement[]
+  shiftCategories    ShiftCategory[]
+  locations          Location[]
+  certificationTypes CertificationType[]
 }
 
 model User {
@@ -39,7 +41,8 @@ model User {
   email          String   @unique
   name           String
   password       String
-  role           String   @default("EMPLOYEE") // EMPLOYEE, MANAGER, ADMIN
+  role           String   @default("EMPLOYEE") // EMPLOYEE, MANAGER, ADMIN (permission level)
+  staffRole      String   @default("DESK") // DESK, COACH, SETTER, INSTRUCTOR (job function)
   avatarUrl      String?
   phone          String?
   holidayBalance Int      @default(25)
@@ -48,6 +51,10 @@ model User {
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+
+  // Primary location for multi-location support
+  primaryLocationId String?
+  primaryLocation   Location? @relation("PrimaryLocation", fields: [primaryLocationId], references: [id])
 
   shifts           Shift[]          @relation("AssignedShifts")
   createdShifts    Shift[]          @relation("CreatedShifts")
@@ -59,9 +66,13 @@ model User {
   receivedMessages Message[]        @relation("ReceivedMessages")
   messageReads     MessageRead[]
   notifications    Notification[]
+  certifications   UserCertification[]
+  availability     StaffAvailability[]
+  locationAccess   LocationStaff[]
 
   @@index([organizationId])
   @@index([email])
+  @@index([staffRole])
 }
 
 model ShiftCategory {
@@ -108,6 +119,9 @@ model Shift {
   categoryId String?
   category   ShiftCategory? @relation(fields: [categoryId], references: [id])
 
+  locationId String?
+  location   Location? @relation("LocationShifts", fields: [locationId], references: [id])
+
   timeEntries  TimeEntry[]
   swapRequests SwapRequest[]
   messages     Message[]
@@ -116,6 +130,7 @@ model Shift {
   @@index([assignedToId])
   @@index([startTime, endTime])
   @@index([categoryId])
+  @@index([locationId])
 }
 
 model ShiftTemplate {
@@ -272,4 +287,99 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@index([createdAt])
+}
+
+// Multi-location support
+model Location {
+  id        String   @id @default(cuid())
+  name      String   // e.g., "Sydney CBD", "Bondi"
+  address   String?
+  latitude  Float?
+  longitude Float?
+  clockInRadiusMetres Int @default(100)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  shifts        Shift[]         @relation("LocationShifts")
+  staff         LocationStaff[]
+  primaryUsers  User[]          @relation("PrimaryLocation")
+
+  @@index([organizationId])
+}
+
+model LocationStaff {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([locationId, userId])
+  @@index([userId])
+}
+
+// Certification tracking
+model CertificationType {
+  id                String   @id @default(cuid())
+  name              String   // e.g., "First Aid", "Level 1 Coaching", "Route Setting"
+  description       String?
+  validityMonths    Int      @default(12) // How long cert is valid
+  isRequired        Boolean  @default(false) // Required for employment
+  requiredForRoles  String   @default("[]") // JSON array of staff roles that need this cert
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  userCertifications UserCertification[]
+
+  @@index([organizationId])
+}
+
+model UserCertification {
+  id            String    @id @default(cuid())
+  issueDate     DateTime
+  expiryDate    DateTime?
+  certificateNumber String?
+  notes         String?
+  status        String    @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  certificationTypeId String
+  certificationType   CertificationType @relation(fields: [certificationTypeId], references: [id])
+
+  @@index([userId])
+  @@index([certificationTypeId])
+  @@index([expiryDate])
+}
+
+// Staff availability
+model StaffAvailability {
+  id        String   @id @default(cuid())
+  dayOfWeek Int      // 0=Sunday, 1=Monday, etc.
+  startTime String   // HH:mm format
+  endTime   String   // HH:mm format
+  isRecurring Boolean @default(true) // Weekly recurring or one-time
+  specificDate DateTime? // For non-recurring availability
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([dayOfWeek])
 }

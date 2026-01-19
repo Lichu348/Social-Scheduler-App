@@ -18,7 +18,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const { role, holidayBalance, phone } = await req.json();
+    const { role, staffRole, holidayBalance, phone, primaryLocationId } = await req.json();
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -32,16 +32,22 @@ export async function PATCH(
       where: { id },
       data: {
         role: role !== undefined ? role : undefined,
+        staffRole: staffRole !== undefined ? staffRole : undefined,
         holidayBalance: holidayBalance !== undefined ? holidayBalance : undefined,
         phone: phone !== undefined ? phone : undefined,
+        primaryLocationId: primaryLocationId !== undefined ? primaryLocationId : undefined,
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
+        staffRole: true,
         holidayBalance: true,
         phone: true,
+        primaryLocation: {
+          select: { id: true, name: true },
+        },
       },
     });
 

@@ -17,9 +17,10 @@ import { MoreHorizontal, UserCog, Trash2 } from "lucide-react";
 interface TeamMemberActionsProps {
   userId: string;
   currentRole: string;
+  currentStaffRole: string;
 }
 
-export function TeamMemberActions({ userId, currentRole }: TeamMemberActionsProps) {
+export function TeamMemberActions({ userId, currentRole, currentStaffRole }: TeamMemberActionsProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -34,6 +35,22 @@ export function TeamMemberActions({ userId, currentRole }: TeamMemberActionsProp
       router.refresh();
     } catch (error) {
       console.error("Failed to update role:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStaffRoleChange = async (newStaffRole: string) => {
+    setLoading(true);
+    try {
+      await fetch(`/api/team/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffRole: newStaffRole }),
+      });
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to update staff role:", error);
     } finally {
       setLoading(false);
     }
@@ -62,8 +79,7 @@ export function TeamMemberActions({ userId, currentRole }: TeamMemberActionsProp
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Permission Level</DropdownMenuLabel>
         {currentRole !== "ADMIN" && (
           <DropdownMenuItem onClick={() => handleRoleChange("ADMIN")}>
             <UserCog className="mr-2 h-4 w-4" />
@@ -80,6 +96,28 @@ export function TeamMemberActions({ userId, currentRole }: TeamMemberActionsProp
           <DropdownMenuItem onClick={() => handleRoleChange("EMPLOYEE")}>
             <UserCog className="mr-2 h-4 w-4" />
             Make Employee
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Job Role</DropdownMenuLabel>
+        {currentStaffRole !== "DESK" && (
+          <DropdownMenuItem onClick={() => handleStaffRoleChange("DESK")}>
+            Front Desk
+          </DropdownMenuItem>
+        )}
+        {currentStaffRole !== "COACH" && (
+          <DropdownMenuItem onClick={() => handleStaffRoleChange("COACH")}>
+            Coach
+          </DropdownMenuItem>
+        )}
+        {currentStaffRole !== "SETTER" && (
+          <DropdownMenuItem onClick={() => handleStaffRoleChange("SETTER")}>
+            Route Setter
+          </DropdownMenuItem>
+        )}
+        {currentStaffRole !== "INSTRUCTOR" && (
+          <DropdownMenuItem onClick={() => handleStaffRoleChange("INSTRUCTOR")}>
+            Instructor
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

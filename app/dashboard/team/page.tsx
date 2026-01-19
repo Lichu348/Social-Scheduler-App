@@ -14,13 +14,18 @@ async function getTeamData(organizationId: string) {
       name: true,
       email: true,
       role: true,
+      staffRole: true,
       phone: true,
       holidayBalance: true,
       createdAt: true,
+      primaryLocation: {
+        select: { id: true, name: true },
+      },
       _count: {
         select: {
           shifts: true,
           timeEntries: true,
+          certifications: true,
         },
       },
     },
@@ -46,6 +51,26 @@ export default async function TeamPage() {
       default:
         return <Badge variant="outline">Employee</Badge>;
     }
+  };
+
+  const getStaffRoleBadge = (staffRole: string) => {
+    const colors: Record<string, string> = {
+      DESK: "bg-blue-100 text-blue-800",
+      COACH: "bg-green-100 text-green-800",
+      SETTER: "bg-purple-100 text-purple-800",
+      INSTRUCTOR: "bg-orange-100 text-orange-800",
+    };
+    const labels: Record<string, string> = {
+      DESK: "Front Desk",
+      COACH: "Coach",
+      SETTER: "Setter",
+      INSTRUCTOR: "Instructor",
+    };
+    return (
+      <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors[staffRole] || "bg-gray-100 text-gray-800"}`}>
+        {labels[staffRole] || staffRole}
+      </span>
+    );
   };
 
   const admins = users.filter((u) => u.role === "ADMIN");
@@ -125,14 +150,21 @@ export default async function TeamPage() {
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{user.name}</p>
                       {getRoleBadge(user.role)}
+                      {getStaffRoleBadge(user.staffRole)}
                       {user.id === session.user.id && (
                         <Badge variant="outline" className="text-xs">You</Badge>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">{user.email}</p>
-                    {user.phone && (
-                      <p className="text-sm text-muted-foreground">{user.phone}</p>
-                    )}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      {user.phone && <span>{user.phone}</span>}
+                      {user.primaryLocation && (
+                        <span className="flex items-center gap-1">
+                          {user.phone && <span>•</span>}
+                          {user.primaryLocation.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">
@@ -148,6 +180,7 @@ export default async function TeamPage() {
                     <TeamMemberActions
                       userId={user.id}
                       currentRole={user.role}
+                      currentStaffRole={user.staffRole}
                     />
                   )}
                 </div>

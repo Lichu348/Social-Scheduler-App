@@ -27,6 +27,7 @@ export function InviteUserDialog() {
     email: "",
     password: "",
     role: "EMPLOYEE",
+    staffRole: "DESK",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,7 +50,7 @@ export function InviteUserDialog() {
       }
 
       setOpen(false);
-      setFormData({ name: "", email: "", password: "", role: "EMPLOYEE" });
+      setFormData({ name: "", email: "", password: "", role: "EMPLOYEE", staffRole: "DESK" });
       router.refresh();
     } catch {
       setError("Something went wrong");
@@ -62,6 +63,13 @@ export function InviteUserDialog() {
     { value: "EMPLOYEE", label: "Employee" },
     { value: "MANAGER", label: "Manager" },
     { value: "ADMIN", label: "Admin" },
+  ];
+
+  const staffRoleOptions = [
+    { value: "DESK", label: "Front Desk" },
+    { value: "COACH", label: "Coach" },
+    { value: "SETTER", label: "Route Setter" },
+    { value: "INSTRUCTOR", label: "Instructor" },
   ];
 
   return (
@@ -125,13 +133,24 @@ export function InviteUserDialog() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="role">Permission Level</Label>
               <Select
                 id="role"
                 options={roleOptions}
                 value={formData.role}
                 onChange={(e) =>
                   setFormData({ ...formData, role: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="staffRole">Job Role</Label>
+              <Select
+                id="staffRole"
+                options={staffRoleOptions}
+                value={formData.staffRole}
+                onChange={(e) =>
+                  setFormData({ ...formData, staffRole: e.target.value })
                 }
               />
             </div>

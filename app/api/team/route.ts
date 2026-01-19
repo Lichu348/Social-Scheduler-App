@@ -17,9 +17,13 @@ export async function GET() {
         name: true,
         email: true,
         role: true,
+        staffRole: true,
         phone: true,
         holidayBalance: true,
         createdAt: true,
+        primaryLocation: {
+          select: { id: true, name: true },
+        },
       },
       orderBy: { name: "asc" },
     });
@@ -46,7 +50,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { name, email, password, role } = await req.json();
+    const { name, email, password, role, staffRole, primaryLocationId } = await req.json();
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -75,6 +79,8 @@ export async function POST(req: Request) {
         email,
         password: hashedPassword,
         role: role || "EMPLOYEE",
+        staffRole: staffRole || "DESK",
+        primaryLocationId: primaryLocationId || null,
         organizationId: session.user.organizationId,
       },
       select: {
@@ -82,6 +88,7 @@ export async function POST(req: Request) {
         name: true,
         email: true,
         role: true,
+        staffRole: true,
       },
     });
 

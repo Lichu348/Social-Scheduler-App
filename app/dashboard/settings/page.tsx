@@ -8,6 +8,9 @@ import { ShiftCategoriesManager } from "@/components/shift-categories-manager";
 import { BreakRulesForm } from "@/components/break-rules-form";
 import { ClockSettingsForm } from "@/components/clock-settings-form";
 import { LocationSettingsForm } from "@/components/location-settings-form";
+import { LocationsManager } from "@/components/locations-manager";
+import { CertificationsManager } from "@/components/certifications-manager";
+import { AvailabilityForm } from "@/components/availability-form";
 
 async function getSettingsData(userId: string, organizationId: string) {
   const [user, organization] = await Promise.all([
@@ -170,6 +173,49 @@ export default async function SettingsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Multiple Locations (Admin only) */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Gym Locations</CardTitle>
+              <CardDescription>
+                Manage multiple gym sites and their clock-in zones
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LocationsManager />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Certifications (Admin only) */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Certifications</CardTitle>
+              <CardDescription>
+                Manage certification types and track staff qualifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CertificationsManager />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Staff Availability (All users) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>My Availability</CardTitle>
+            <CardDescription>
+              Set your regular weekly availability for scheduling
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AvailabilityForm />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
