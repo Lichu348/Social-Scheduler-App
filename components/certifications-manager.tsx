@@ -42,6 +42,7 @@ export function CertificationsManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -71,20 +72,25 @@ export function CertificationsManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch("/api/certifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
+      const data = await res.json();
       if (res.ok) {
         setFormData({ name: "", description: "", validityMonths: 12, isRequired: false });
         setShowForm(false);
         fetchData();
         router.refresh();
+      } else {
+        setError(data.error || "Failed to create certification type");
       }
     } catch (error) {
       console.error("Failed to create certification type:", error);
+      setError("Failed to create certification type");
     } finally {
       setSaving(false);
     }
@@ -161,6 +167,11 @@ export function CertificationsManager() {
 
         {showForm ? (
           <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg mt-3">
+            {error && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="certName">Certification Name</Label>
               <Input

@@ -79,51 +79,47 @@ export default async function HolidaysPage() {
         </p>
       </div>
 
-      {/* Balance Card */}
-      {!isManager && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Holiday Balance</CardTitle>
-            <CardDescription>Your available time off</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <p className="text-3xl font-bold text-green-600">{holidayBalance}</p>
-                <p className="text-sm text-muted-foreground">Days Available</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <p className="text-3xl font-bold">{usedDays}</p>
-                <p className="text-sm text-muted-foreground">Days Used</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <p className="text-3xl font-bold text-yellow-600">{pendingDays}</p>
-                <p className="text-sm text-muted-foreground">Days Pending</p>
-              </div>
+      {/* Balance Card - shown to everyone */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Holiday Balance</CardTitle>
+          <CardDescription>Your available time off</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <p className="text-3xl font-bold text-green-600">{holidayBalance}</p>
+              <p className="text-sm text-muted-foreground">Days Available</p>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <p className="text-3xl font-bold">{usedDays}</p>
+              <p className="text-sm text-muted-foreground">Days Used</p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-muted/50">
+              <p className="text-3xl font-bold text-yellow-600">{pendingDays}</p>
+              <p className="text-sm text-muted-foreground">Days Pending</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Request Form */}
-        {!isManager && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Request Time Off</CardTitle>
-              <CardDescription>Submit a new holiday request</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <HolidayRequestForm maxDays={holidayBalance} />
-            </CardContent>
-          </Card>
-        )}
+        {/* Request Form - shown to everyone */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Request Time Off</CardTitle>
+            <CardDescription>Submit a new holiday request</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HolidayRequestForm maxDays={holidayBalance} />
+          </CardContent>
+        </Card>
 
         {/* Pending Requests */}
-        <Card className={isManager ? "lg:col-span-2" : ""}>
+        <Card>
           <CardHeader>
             <CardTitle>
-              {isManager ? "Pending Requests" : "Your Requests"}
+              {isManager ? "Team Pending Requests" : "Your Requests"}
             </CardTitle>
             <CardDescription>
               {isManager

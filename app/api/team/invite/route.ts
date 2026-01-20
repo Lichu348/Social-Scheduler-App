@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     });
 
     if (!currentUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ error: "Session expired. Please log out and log back in." }, { status: 404 });
     }
 
     // Only admins and managers can invite staff

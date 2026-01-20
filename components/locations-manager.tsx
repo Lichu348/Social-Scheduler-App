@@ -28,6 +28,7 @@ export function LocationsManager() {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     address: "",
@@ -74,6 +75,7 @@ export function LocationsManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch("/api/locations", {
         method: "POST",
@@ -86,14 +88,18 @@ export function LocationsManager() {
           clockInRadiusMetres: formData.clockInRadiusMetres,
         }),
       });
+      const data = await res.json();
       if (res.ok) {
         setFormData({ name: "", address: "", latitude: "", longitude: "", clockInRadiusMetres: 100 });
         setShowForm(false);
         fetchLocations();
         router.refresh();
+      } else {
+        setError(data.error || "Failed to create location");
       }
     } catch (error) {
       console.error("Failed to create location:", error);
+      setError("Failed to create location");
     } finally {
       setSaving(false);
     }
@@ -149,6 +155,11 @@ export function LocationsManager() {
 
       {showForm ? (
         <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg">
+          {error && (
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="name">Location Name</Label>
             <Input

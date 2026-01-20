@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import {
   Calendar,
   Clock,
-  MessageSquare,
   Users,
   Palmtree,
   Settings,
@@ -39,7 +38,6 @@ const navigation = [
   { name: "Timesheet", href: "/dashboard/timesheet", icon: Clock },
   { name: "Availability", href: "/dashboard/availability", icon: CalendarClock },
   { name: "Shift Swaps", href: "/dashboard/swaps", icon: ArrowLeftRight },
-  { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
   { name: "Holidays", href: "/dashboard/holidays", icon: Palmtree },
   { name: "Team", href: "/dashboard/team", icon: Users },
   { name: "Certifications", href: "/dashboard/certifications", icon: Award, managerOnly: true },
