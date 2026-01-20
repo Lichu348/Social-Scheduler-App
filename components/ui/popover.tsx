@@ -67,12 +67,16 @@ export function PopoverTrigger({ children, asChild }: PopoverTriggerProps) {
 
 interface PopoverContentProps extends React.HTMLAttributes<HTMLDivElement> {
   align?: "start" | "center" | "end";
+  side?: "top" | "bottom";
+  sideOffset?: number;
 }
 
 export function PopoverContent({
   children,
   className,
   align = "center",
+  side = "bottom",
+  sideOffset = 8,
   ...props
 }: PopoverContentProps) {
   const context = React.useContext(PopoverContext);
@@ -98,11 +102,16 @@ export function PopoverContent({
 
   if (!context.open) return null;
 
+  const sideStyles = side === "top"
+    ? { bottom: "100%", marginBottom: `${sideOffset}px` }
+    : { top: "100%", marginTop: `${sideOffset}px` };
+
   return (
     <div
       ref={ref}
+      style={sideStyles}
       className={cn(
-        "absolute z-50 mt-2 rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in fade-in-0 zoom-in-95",
+        "absolute z-50 rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in fade-in-0 zoom-in-95",
         align === "start" && "left-0",
         align === "center" && "left-1/2 -translate-x-1/2",
         align === "end" && "right-0",
