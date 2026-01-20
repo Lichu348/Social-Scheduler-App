@@ -36,27 +36,38 @@ async function getScheduleData(organizationId: string, userId: string, role: str
   const isAdmin = role === "ADMIN";
   const isManager = role === "MANAGER";
 
-  if (isAdmin || isManager) {
-    // Admins/managers can view all or filter by specific location
+  if (isAdmin) {
+    // Admins can view all or filter by specific location
     filterLocationId = locationId && locationId !== "all" ? locationId : null;
-  } else if (userLocationIds.length > 0) {
-    // Staff can only see their assigned locations
+  } else if (isManager || userLocationIds.length > 0) {
+    // Managers and staff can only see their assigned locations
     if (locationId && userLocationIds.includes(locationId)) {
       filterLocationId = locationId;
-    } else {
-      // Default to first assigned location
-      filterLocationId = userLocationIds[0];
+    } else if (userLocationIds.length > 0) {
+      // Default to first assigned location (or show all assigned if manager selects "all")
+      if (locationId === "all" && isManager) {
+        filterLocationId = null; // Will be filtered by userLocationIds below
+      } else {
+        filterLocationId = userLocationIds[0];
+      }
     }
   }
 
-  // For non-admin/manager, restrict to their assigned locations if no specific filter
-  const locationFilter = isAdmin || isManager
-    ? (filterLocationId ? { locationId: filterLocationId } : {})
-    : (filterLocationId
-      ? { locationId: filterLocationId }
-      : (userLocationIds.length > 0 ? { locationId: { in: userLocationIds } } : {}));
+  // Build location filter based on role
+  let locationFilter: object = {};
+  if (isAdmin) {
+    // Admins can see all or filter by specific location
+    locationFilter = filterLocationId ? { locationId: filterLocationId } : {};
+  } else if (userLocationIds.length > 0) {
+    // Managers and staff are restricted to their assigned locations
+    if (filterLocationId) {
+      locationFilter = { locationId: filterLocationId };
+    } else {
+      locationFilter = { locationId: { in: userLocationIds } };
+    }
+  }
 
-  const [shifts, users, organization, allLocations, availability] = await Promise.all([
+  const [shifts, users, organization, allLocations, availability, categories, holidays] = await Promise.all([
     prisma.shift.findMany({
       where: {
         organizationId,
@@ -109,6 +120,31 @@ async function getScheduleData(organizationId: string, userId: string, role: str
         specificDate: true,
       },
     }),
+    prisma.shiftCategory.findMany({
+      where: { organizationId, isActive: true },
+      select: { id: true, name: true, hourlyRate: true, color: true },
+      orderBy: { name: "asc" },
+    }),
+    // Fetch approved holidays that overlap with the current period
+    prisma.holidayRequest.findMany({
+      where: {
+        user: { organizationId },
+        status: "APPROVED",
+        OR: [
+          { startDate: { gte: startOfMonth, lt: endOfMonth } },
+          { endDate: { gte: startOfMonth, lt: endOfMonth } },
+          { AND: [{ startDate: { lt: startOfMonth } }, { endDate: { gte: endOfMonth } }] },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        startDate: true,
+        endDate: true,
+        hours: true,
+        reason: true,
+      },
+    }),
   ]);
 
   return {
@@ -123,6 +159,12 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     availability: availability.map((a) => ({
       ...a,
       specificDate: a.specificDate?.toISOString() || null,
+    })),
+    categories,
+    holidays: holidays.map((h) => ({
+      ...h,
+      startDate: h.startDate.toISOString(),
+      endDate: h.endDate.toISOString(),
     })),
   };
 }
@@ -148,6 +190,8 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
     userLocationIds,
     isMultiLocation,
     availability,
+    categories,
+    holidays,
   } = await getScheduleData(
     session.user.organizationId,
     session.user.id,
@@ -159,11 +203,12 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
   const isAdmin = session.user.role === "ADMIN";
 
   // Determine which locations to show in dropdown
-  // Admins/managers see all locations with "All Locations" option
+  // Admins see all locations
+  // Managers see only their assigned locations (with "All My Locations" option if multiple)
   // Staff see only their assigned locations (no "All" option)
   const showLocationDropdown = allLocations.length > 0;
-  const dropdownLocations = isAdmin || isManager ? allLocations : userLocations;
-  const showAllOption = isAdmin || isManager;
+  const dropdownLocations = isAdmin ? allLocations : userLocations;
+  const showAllOption = isAdmin || (isManager && userLocations.length > 1);
 
   return (
     <div className="p-8">
@@ -188,14 +233,14 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
             <CreateShiftDialog
               users={users}
               breakRules={breakRules}
-              locations={allLocations}
+              locations={isAdmin ? allLocations : userLocations}
               defaultLocationId={currentLocationId}
             />
           )}
         </div>
       </div>
 
-      {!isAdmin && !isManager && userLocationIds.length === 0 && allLocations.length > 0 && (
+      {!isAdmin && userLocationIds.length === 0 && allLocations.length > 0 && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
           You haven't been assigned to any locations yet. Contact your admin to be assigned.
         </div>
@@ -209,6 +254,9 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
         availability={availability}
         locationId={currentLocationId}
         showSidebar={isManager}
+        categories={categories}
+        locations={isAdmin ? allLocations : userLocations}
+        holidays={holidays}
       />
     </div>
   );

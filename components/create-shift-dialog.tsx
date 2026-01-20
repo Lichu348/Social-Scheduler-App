@@ -355,7 +355,7 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
               <div className="flex items-center gap-2 p-3 bg-muted rounded-md text-sm">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span>
-                  Shift duration: {shiftDuration.toFixed(1)} hours
+                  Shift duration: {shiftDuration.toFixed(2)} hours
                   {scheduledBreak > 0 && (
                     <span className="text-muted-foreground">
                       {" "}| Scheduled break: {scheduledBreak} min

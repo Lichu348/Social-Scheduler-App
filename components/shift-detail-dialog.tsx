@@ -13,14 +13,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EditShiftDialog } from "./edit-shift-dialog";
 import { formatDate, formatTime, calculateHours } from "@/lib/utils";
-import { Calendar, Clock, User, ArrowLeftRight, Trash2, Coffee, Tag, DollarSign, AlertTriangle } from "lucide-react";
+import { Calendar, Clock, User, ArrowLeftRight, Trash2, Coffee, Tag, DollarSign, AlertTriangle, Pencil } from "lucide-react";
 
 interface ShiftCategory {
   id: string;
   name: string;
   hourlyRate: number;
   color: string;
+}
+
+interface Location {
+  id: string;
+  name: string;
 }
 
 interface Shift {
@@ -34,6 +40,7 @@ interface Shift {
   scheduledBreakMinutes?: number;
   assignedTo: { id: string; name: string; email: string } | null;
   category?: ShiftCategory | null;
+  location?: Location | null;
 }
 
 interface User {
@@ -55,6 +62,8 @@ interface ShiftDetailDialogProps {
   users: User[];
   currentUserId: string;
   isManager: boolean;
+  categories?: ShiftCategory[];
+  locations?: Location[];
   onClose: () => void;
 }
 
@@ -63,6 +72,8 @@ export function ShiftDetailDialog({
   users,
   currentUserId,
   isManager,
+  categories = [],
+  locations = [],
   onClose,
 }: ShiftDetailDialogProps) {
   const router = useRouter();
@@ -70,6 +81,7 @@ export function ShiftDetailDialog({
   const [newAssignee, setNewAssignee] = useState(shift.assignedTo?.id || "");
   const [certWarning, setCertWarning] = useState<CertificationWarning | null>(null);
   const [checkingCerts, setCheckingCerts] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const isMyShift = shift.assignedTo?.id === currentUserId;
   const hours = calculateHours(shift.startTime, shift.endTime);
@@ -201,14 +213,14 @@ export function ShiftDetailDialog({
           <div className="flex items-center gap-3 text-sm">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span>
-              {formatTime(shift.startTime)} - {formatTime(shift.endTime)} ({hours.toFixed(1)} hours total)
+              {formatTime(shift.startTime)} - {formatTime(shift.endTime)} ({hours.toFixed(2)} hours total)
             </span>
           </div>
           {/* Hours breakdown box */}
           <div className="p-3 bg-muted rounded-lg space-y-1">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Shift duration:</span>
-              <span>{hours.toFixed(1)} hours</span>
+              <span>{hours.toFixed(2)} hours</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground flex items-center gap-1">
@@ -220,7 +232,7 @@ export function ShiftDetailDialog({
             <div className="flex justify-between text-sm font-medium border-t pt-1 mt-1">
               <span>Paid hours:</span>
               <span className="text-primary">
-                {(hours - (shift.scheduledBreakMinutes || 0) / 60).toFixed(1)} hours
+                {(hours - (shift.scheduledBreakMinutes || 0) / 60).toFixed(2)} hours
               </span>
             </div>
             {shift.category?.hourlyRate && (
@@ -315,6 +327,15 @@ export function ShiftDetailDialog({
             <>
               <Button
                 variant="outline"
+                onClick={() => setShowEditDialog(true)}
+                disabled={loading}
+                className="w-full sm:w-auto"
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+              <Button
+                variant="outline"
                 onClick={handleReassign}
                 disabled={loading || newAssignee === (shift.assignedTo?.id || "") || (certWarning !== null && !certWarning.isValid)}
                 className="w-full sm:w-auto"
@@ -337,6 +358,21 @@ export function ShiftDetailDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Edit Dialog */}
+      {showEditDialog && (
+        <EditShiftDialog
+          shift={shift}
+          users={users}
+          categories={categories}
+          locations={locations}
+          onClose={() => setShowEditDialog(false)}
+          onSave={() => {
+            setShowEditDialog(false);
+            onClose();
+          }}
+        />
+      )}
     </Dialog>
   );
 }

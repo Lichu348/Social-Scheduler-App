@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { calculateWorkingDays } from "@/lib/utils";
 
 export async function GET(req: Request) {
   try {
@@ -41,7 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { startDate, endDate, reason } = await req.json();
+    const { startDate, endDate, hours, reason } = await req.json();
 
     if (!startDate || !endDate) {
       return NextResponse.json(
@@ -50,16 +49,22 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!hours || hours <= 0) {
+      return NextResponse.json(
+        { error: "Hours must be greater than 0" },
+        { status: 400 }
+      );
+    }
+
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const days = calculateWorkingDays(start, end);
 
     // Check holiday balance
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
 
-    if (!user || user.holidayBalance < days) {
+    if (!user || user.holidayBalance < hours) {
       return NextResponse.json(
         { error: "Insufficient holiday balance" },
         { status: 400 }
@@ -71,7 +76,7 @@ export async function POST(req: Request) {
         userId: session.user.id,
         startDate: start,
         endDate: end,
-        days,
+        hours,
         reason: reason || null,
       },
       include: {
@@ -94,7 +99,7 @@ export async function POST(req: Request) {
         userId: manager.id,
         type: "HOLIDAY_REQUEST",
         title: "Holiday Request",
-        message: `${session.user.name} requested ${days} days off`,
+        message: `${session.user.name} requested ${hours} hours off`,
         link: "/dashboard/holidays",
       })),
     });

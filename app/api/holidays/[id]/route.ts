@@ -39,7 +39,7 @@ export async function PATCH(
       await prisma.user.update({
         where: { id: request.userId },
         data: {
-          holidayBalance: { decrement: request.days },
+          holidayBalance: { decrement: request.hours },
         },
       });
     }

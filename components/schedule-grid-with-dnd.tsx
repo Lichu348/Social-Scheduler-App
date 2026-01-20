@@ -64,6 +64,20 @@ interface ShiftTemplate {
   category?: ShiftCategory | null;
 }
 
+interface Location {
+  id: string;
+  name: string;
+}
+
+interface Holiday {
+  id: string;
+  userId: string;
+  startDate: string;
+  endDate: string;
+  hours: number;
+  reason: string | null;
+}
+
 interface ScheduleGridWithDndProps {
   shifts: Shift[];
   users: User[];
@@ -72,6 +86,9 @@ interface ScheduleGridWithDndProps {
   availability?: Availability[];
   locationId?: string | null;
   showSidebar?: boolean;
+  categories?: ShiftCategory[];
+  locations?: Location[];
+  holidays?: Holiday[];
 }
 
 export function ScheduleGridWithDnd({
@@ -82,6 +99,9 @@ export function ScheduleGridWithDnd({
   availability = [],
   locationId,
   showSidebar = true,
+  categories = [],
+  locations = [],
+  holidays = [],
 }: ScheduleGridWithDndProps) {
   const [mounted, setMounted] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<ShiftTemplate | null>(null);
@@ -153,6 +173,9 @@ export function ScheduleGridWithDnd({
         isManager={isManager}
         availability={availability}
         locationId={locationId}
+        categories={categories}
+        locations={locations}
+        holidays={holidays}
       />
     );
   }
@@ -175,6 +198,9 @@ export function ScheduleGridWithDnd({
             availability={availability}
             locationId={locationId}
             enableDroppable={true}
+            categories={categories}
+            locations={locations}
+            holidays={holidays}
           />
         </div>
       </div>

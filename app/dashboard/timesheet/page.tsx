@@ -94,7 +94,7 @@ export default async function TimesheetPage() {
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="text-center p-4 rounded-lg bg-muted/50">
-              <p className="text-3xl font-bold">{weeklyTotal.toFixed(1)}</p>
+              <p className="text-3xl font-bold">{weeklyTotal.toFixed(2)}</p>
               <p className="text-sm text-muted-foreground">Total Hours</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-muted/50">
@@ -174,7 +174,7 @@ export default async function TimesheetPage() {
                     </p>
                     <p className="text-sm">
                       <span className="font-medium">
-                        {calculateTotalHours(entry).toFixed(1)} hours
+                        {calculateTotalHours(entry).toFixed(2)} hours
                       </span>
                       {entry.totalBreak > 0 && (
                         <span className="text-muted-foreground">
@@ -224,7 +224,7 @@ export default async function TimesheetPage() {
                     </p>
                     <p className="text-sm">
                       <span className="font-medium">
-                        {calculateTotalHours(entry).toFixed(1)} hours
+                        {calculateTotalHours(entry).toFixed(2)} hours
                       </span>
                     </p>
                   </div>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-// Get availability (own or all if manager/admin)
+// Get availability (own by default, all if ?all=true and manager/admin)
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -12,16 +12,15 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
+    const viewAll = searchParams.get("all") === "true";
 
     // Employees can only view their own availability
     if (session.user.role === "EMPLOYEE" && userId && userId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const targetUserId = userId || session.user.id;
-
-    // If viewing all (no userId and is manager/admin)
-    if (!userId && session.user.role !== "EMPLOYEE") {
+    // If explicitly requesting all availability (managers/admins only)
+    if (viewAll && session.user.role !== "EMPLOYEE") {
       const allAvailability = await prisma.staffAvailability.findMany({
         where: {
           user: { organizationId: session.user.organizationId },
@@ -37,7 +36,8 @@ export async function GET(req: Request) {
       return NextResponse.json(allAvailability);
     }
 
-    // View specific user's availability
+    // View specific user's availability (defaults to current user)
+    const targetUserId = userId || session.user.id;
     const availability = await prisma.staffAvailability.findMany({
       where: { userId: targetUserId },
       orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],

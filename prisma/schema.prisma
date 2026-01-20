@@ -43,7 +43,7 @@ model HolidayRequest {
   id        String   @id @default(cuid())
   startDate DateTime
   endDate   DateTime
-  days      Int
+  hours     Int      @default(8)
   reason    String?
   status    String   @default("PENDING")
   createdAt DateTime @default(now())
@@ -350,7 +350,7 @@ model User {
   staffRole         String              @default("DESK")
   avatarUrl         String?
   phone             String?
-  holidayBalance    Int                 @default(25)
+  holidayBalance    Int                 @default(200)
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   organizationId    String

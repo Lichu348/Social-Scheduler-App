@@ -46,6 +46,20 @@ interface Availability {
   specificDate?: string | null;
 }
 
+interface Location {
+  id: string;
+  name: string;
+}
+
+interface Holiday {
+  id: string;
+  userId: string;
+  startDate: string;
+  endDate: string;
+  hours: number;
+  reason: string | null;
+}
+
 interface ScheduleGridProps {
   shifts: Shift[];
   users: User[];
@@ -54,6 +68,9 @@ interface ScheduleGridProps {
   availability?: Availability[];
   locationId?: string | null;
   enableDroppable?: boolean;
+  categories?: ShiftCategory[];
+  locations?: Location[];
+  holidays?: Holiday[];
 }
 
 // Droppable cell component for drag-and-drop
@@ -108,6 +125,9 @@ export function ScheduleGrid({
   availability = [],
   locationId,
   enableDroppable = false,
+  categories = [],
+  locations = [],
+  holidays = [],
 }: ScheduleGridProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
@@ -171,6 +191,16 @@ export function ScheduleGrid({
     return !!recurringAvail;
   };
 
+  const getUserHolidayForDate = (userId: string, date: Date): Holiday | null => {
+    const dateStr = date.toISOString().split("T")[0];
+    return holidays.find((h) => {
+      if (h.userId !== userId) return false;
+      const start = h.startDate.split("T")[0];
+      const end = h.endDate.split("T")[0];
+      return dateStr >= start && dateStr <= end;
+    }) || null;
+  };
+
   const getTotalHoursForUser = (userId: string) => {
     let totalMinutes = 0;
     orderedWeekDates.forEach((date) => {
@@ -182,7 +212,7 @@ export function ScheduleGrid({
         totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60) - breakMins;
       });
     });
-    return (totalMinutes / 60).toFixed(1);
+    return (totalMinutes / 60).toFixed(2);
   };
 
   const formatDateRange = () => {
@@ -206,7 +236,21 @@ export function ScheduleGrid({
     const startStr = formatTime(start);
     const endStr = formatTime(end);
     const categoryName = shift.category?.name || "";
-    const categoryColor = shift.category?.color || (shift.isOpen ? "#fbbf24" : "#e5e7eb");
+    const categoryColor = shift.category?.color || (shift.isOpen ? "#fbbf24" : "#6b7280");
+
+    // Calculate if background is light or dark to determine text color
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 59, g: 130, b: 246 }; // default to blue
+    };
+    const rgb = hexToRgb(categoryColor);
+    const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+    const textColor = luminance > 0.5 ? "#1f2937" : "#ffffff";
+    const textSecondaryColor = luminance > 0.5 ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.8)";
 
     return (
       <button
@@ -215,19 +259,17 @@ export function ScheduleGrid({
           e.stopPropagation();
           setSelectedShift(shift);
         }}
-        className={cn(
-          "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all hover:opacity-80 hover:shadow-md",
-          "border-l-4 shadow-sm"
-        )}
+        className="w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all hover:opacity-90 hover:shadow-lg shadow-md"
         style={{
-          backgroundColor: `${categoryColor}25`,
-          borderLeftColor: categoryColor,
-          color: "#1f2937",
+          backgroundColor: categoryColor,
+          color: textColor,
         }}
       >
         <div className="font-bold">{startStr} - {endStr}</div>
         {categoryName && (
-          <div className="text-xs opacity-70 uppercase mt-0.5 truncate">{categoryName}</div>
+          <div className="text-xs uppercase mt-0.5 truncate" style={{ color: textSecondaryColor }}>
+            {categoryName}
+          </div>
         )}
       </button>
     );
@@ -373,12 +415,21 @@ export function ScheduleGrid({
                       const isToday = isSameDay(date, today);
                       const hasAvailability = isUserAvailable(user.id, date);
                       const hasNoAvailability = availability.length > 0 && !hasAvailability && userShifts.length === 0;
+                      const holiday = getUserHolidayForDate(user.id, date);
 
                       const cellContent = (
                         <div className="space-y-2 min-h-[100px]">
+                          {holiday && (
+                            <div className="w-full text-left px-3 py-2 rounded-md text-sm font-medium bg-purple-500 text-white shadow-md">
+                              <div className="font-bold">Holiday</div>
+                              <div className="text-xs opacity-80 mt-0.5">
+                                {holiday.hours}h off
+                              </div>
+                            </div>
+                          )}
                           {userShifts.length > 0 ? (
                             userShifts.map((shift) => renderShiftCard(shift))
-                          ) : hasNoAvailability ? (
+                          ) : !holiday && hasNoAvailability ? (
                             <div className="text-xs text-gray-400 uppercase font-medium py-4 text-center">
                               Unavailable
                             </div>
@@ -432,6 +483,8 @@ export function ScheduleGrid({
           users={users}
           currentUserId={currentUserId}
           isManager={isManager}
+          categories={categories}
+          locations={locations}
           onClose={() => setSelectedShift(null)}
         />
       )}

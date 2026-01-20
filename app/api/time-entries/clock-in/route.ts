@@ -42,37 +42,136 @@ export async function POST(req: Request) {
       where: { id: session.user.organizationId },
       select: {
         clockInWindowMinutes: true,
-        locationLatitude: true,
-        locationLongitude: true,
-        clockInRadiusMetres: true,
         requireGeolocation: true,
       },
     });
 
-    // Validate geolocation if required
-    if (organization?.requireGeolocation) {
-      if (organization.locationLatitude === null || organization.locationLongitude === null) {
-        // Org location not configured - skip geolocation check
-      } else if (latitude === undefined || longitude === undefined) {
-        return NextResponse.json(
-          {
-            error: "Please enable location services to clock in",
-            code: "LOCATION_REQUIRED"
+    const clockInWindowMinutes = organization?.clockInWindowMinutes ?? 15;
+    const now = new Date();
+
+    // Find the shift to clock into
+    let targetShift = null;
+
+    if (shiftId) {
+      // Specific shift provided
+      targetShift = await prisma.shift.findUnique({
+        where: { id: shiftId },
+        include: {
+          location: {
+            select: {
+              id: true,
+              name: true,
+              latitude: true,
+              longitude: true,
+              clockInRadiusMetres: true,
+            },
           },
-          { status: 400 }
+        },
+      });
+
+      if (!targetShift) {
+        return NextResponse.json(
+          { error: "Shift not found" },
+          { status: 404 }
         );
-      } else {
+      }
+
+      // Check if shift belongs to user
+      if (targetShift.assignedToId !== session.user.id) {
+        return NextResponse.json(
+          { error: "This shift is not assigned to you" },
+          { status: 403 }
+        );
+      }
+    } else {
+      // No shift provided - find user's upcoming shift
+      targetShift = await prisma.shift.findFirst({
+        where: {
+          assignedToId: session.user.id,
+          status: "SCHEDULED",
+          startTime: {
+            gte: new Date(now.getTime() - clockInWindowMinutes * 60 * 1000),
+            lte: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+        include: {
+          location: {
+            select: {
+              id: true,
+              name: true,
+              latitude: true,
+              longitude: true,
+              clockInRadiusMetres: true,
+            },
+          },
+        },
+        orderBy: { startTime: "asc" },
+      });
+    }
+
+    // Require a shift to clock in
+    if (!targetShift) {
+      return NextResponse.json(
+        {
+          error: "No shift found. You can only clock in when you have a scheduled shift.",
+          code: "NO_SHIFT"
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate clock-in window
+    const earliestClockIn = new Date(targetShift.startTime.getTime() - clockInWindowMinutes * 60 * 1000);
+    const latestClockIn = targetShift.endTime;
+
+    if (now < earliestClockIn) {
+      const minutesUntil = Math.ceil((earliestClockIn.getTime() - now.getTime()) / (60 * 1000));
+      return NextResponse.json(
+        {
+          error: `You can only clock in within ${clockInWindowMinutes} minutes of your shift start time. Please wait ${minutesUntil} more minutes.`,
+          code: "TOO_EARLY"
+        },
+        { status: 400 }
+      );
+    }
+
+    if (now > latestClockIn) {
+      return NextResponse.json(
+        {
+          error: "This shift has already ended. Please contact your manager.",
+          code: "SHIFT_ENDED"
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate geolocation against the shift's location (if configured)
+    if (organization?.requireGeolocation && targetShift.location) {
+      const location = targetShift.location;
+
+      if (location.latitude !== null && location.longitude !== null) {
+        if (latitude === undefined || longitude === undefined) {
+          return NextResponse.json(
+            {
+              error: "Please enable location services to clock in",
+              code: "LOCATION_REQUIRED"
+            },
+            { status: 400 }
+          );
+        }
+
         const distance = getDistanceMetres(
           latitude,
           longitude,
-          organization.locationLatitude,
-          organization.locationLongitude
+          location.latitude,
+          location.longitude
         );
 
-        if (distance > organization.clockInRadiusMetres) {
+        const radius = location.clockInRadiusMetres || 100;
+        if (distance > radius) {
           return NextResponse.json(
             {
-              error: `You must be within ${organization.clockInRadiusMetres}m of the gym to clock in. You are currently ${Math.round(distance)}m away.`,
+              error: `You must be within ${radius}m of ${location.name} to clock in. You are currently ${Math.round(distance)}m away.`,
               code: "TOO_FAR"
             },
             { status: 400 }
@@ -81,92 +180,10 @@ export async function POST(req: Request) {
       }
     }
 
-    const clockInWindowMinutes = organization?.clockInWindowMinutes ?? 15;
-    const now = new Date();
-
-    // If a shift is provided, validate clock-in window
-    if (shiftId) {
-      const shift = await prisma.shift.findUnique({
-        where: { id: shiftId },
-      });
-
-      if (!shift) {
-        return NextResponse.json(
-          { error: "Shift not found" },
-          { status: 404 }
-        );
-      }
-
-      // Check if shift belongs to user
-      if (shift.assignedToId !== session.user.id) {
-        return NextResponse.json(
-          { error: "This shift is not assigned to you" },
-          { status: 403 }
-        );
-      }
-
-      // Calculate allowed clock-in window
-      const earliestClockIn = new Date(shift.startTime.getTime() - clockInWindowMinutes * 60 * 1000);
-      const latestClockIn = shift.endTime;
-
-      if (now < earliestClockIn) {
-        const minutesUntil = Math.ceil((earliestClockIn.getTime() - now.getTime()) / (60 * 1000));
-        return NextResponse.json(
-          {
-            error: `You can only clock in within ${clockInWindowMinutes} minutes of your shift start time. Please wait ${minutesUntil} more minutes.`,
-            code: "TOO_EARLY"
-          },
-          { status: 400 }
-        );
-      }
-
-      if (now > latestClockIn) {
-        return NextResponse.json(
-          {
-            error: "This shift has already ended. Please contact your manager.",
-            code: "SHIFT_ENDED"
-          },
-          { status: 400 }
-        );
-      }
-    } else {
-      // No shift provided - check if user has a scheduled shift they should be clocking into
-      const upcomingShift = await prisma.shift.findFirst({
-        where: {
-          assignedToId: session.user.id,
-          status: "SCHEDULED",
-          startTime: {
-            gte: new Date(now.getTime() - clockInWindowMinutes * 60 * 1000),
-            lte: new Date(now.getTime() + 24 * 60 * 60 * 1000), // Within next 24 hours
-          },
-        },
-        orderBy: { startTime: "asc" },
-      });
-
-      // If there's an upcoming shift within the window, auto-associate
-      if (upcomingShift) {
-        const earliestClockIn = new Date(upcomingShift.startTime.getTime() - clockInWindowMinutes * 60 * 1000);
-
-        if (now >= earliestClockIn && now <= upcomingShift.endTime) {
-          // Auto-associate with the shift
-          const timeEntry = await prisma.timeEntry.create({
-            data: {
-              userId: session.user.id,
-              shiftId: upcomingShift.id,
-              clockIn: now,
-              clockInLatitude: latitude ?? null,
-              clockInLongitude: longitude ?? null,
-            },
-          });
-          return NextResponse.json(timeEntry);
-        }
-      }
-    }
-
     const timeEntry = await prisma.timeEntry.create({
       data: {
         userId: session.user.id,
-        shiftId: shiftId || null,
+        shiftId: targetShift.id,
         clockIn: now,
         clockInLatitude: latitude ?? null,
         clockInLongitude: longitude ?? null,

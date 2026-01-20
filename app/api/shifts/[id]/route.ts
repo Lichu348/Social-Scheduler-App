@@ -96,6 +96,8 @@ export async function PATCH(
         isOpen: data.assignedToId === null || data.assignedToId === "",
         status: data.status,
         categoryId: data.categoryId !== undefined ? data.categoryId : undefined,
+        locationId: data.locationId !== undefined ? data.locationId : undefined,
+        scheduledBreakMinutes: data.scheduledBreakMinutes !== undefined ? data.scheduledBreakMinutes : undefined,
       },
       include: {
         assignedTo: {
@@ -103,6 +105,9 @@ export async function PATCH(
         },
         category: {
           select: { id: true, name: true, hourlyRate: true, color: true },
+        },
+        location: {
+          select: { id: true, name: true },
         },
       },
     });

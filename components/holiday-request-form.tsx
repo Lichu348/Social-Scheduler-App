@@ -8,29 +8,46 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 interface HolidayRequestFormProps {
-  maxDays: number;
+  maxHours: number;
 }
 
-export function HolidayRequestForm({ maxDays }: HolidayRequestFormProps) {
+export function HolidayRequestForm({ maxHours }: HolidayRequestFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     startDate: "",
     endDate: "",
+    hours: "",
     reason: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const requestedHours = parseInt(formData.hours) || 0;
+    if (requestedHours <= 0) {
+      setError("Please enter the number of hours requested");
+      return;
+    }
+    if (requestedHours > maxHours) {
+      setError(`You only have ${maxHours} hours available`);
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/holidays", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          hours: requestedHours,
+          reason: formData.reason,
+        }),
       });
 
       const data = await res.json();
@@ -40,7 +57,7 @@ export function HolidayRequestForm({ maxDays }: HolidayRequestFormProps) {
         return;
       }
 
-      setFormData({ startDate: "", endDate: "", reason: "" });
+      setFormData({ startDate: "", endDate: "", hours: "", reason: "" });
       router.refresh();
     } catch {
       setError("Something went wrong");
@@ -85,6 +102,22 @@ export function HolidayRequestForm({ maxDays }: HolidayRequestFormProps) {
         </div>
       </div>
       <div className="space-y-2">
+        <Label htmlFor="hours">Hours Requested</Label>
+        <Input
+          id="hours"
+          type="number"
+          min="1"
+          max={maxHours}
+          placeholder="e.g., 8"
+          value={formData.hours}
+          onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
+          required
+        />
+        <p className="text-xs text-muted-foreground">
+          Enter the total hours you're requesting off
+        </p>
+      </div>
+      <div className="space-y-2">
         <Label htmlFor="reason">Reason (optional)</Label>
         <Textarea
           id="reason"
@@ -94,9 +127,9 @@ export function HolidayRequestForm({ maxDays }: HolidayRequestFormProps) {
         />
       </div>
       <p className="text-sm text-muted-foreground">
-        You have <span className="font-medium">{maxDays}</span> days available
+        You have <span className="font-medium">{maxHours}</span> hours available
       </p>
-      <Button type="submit" disabled={loading || maxDays === 0}>
+      <Button type="submit" disabled={loading || maxHours === 0}>
         {loading ? "Submitting..." : "Submit Request"}
       </Button>
     </form>

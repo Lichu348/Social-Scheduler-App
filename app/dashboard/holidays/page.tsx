@@ -63,10 +63,10 @@ export default async function HolidaysPage() {
   };
 
   // Calculate used and pending days
-  const usedDays = approvedRequests.reduce((total, r) => total + r.days, 0);
-  const pendingDays = pendingRequests
+  const usedHours = approvedRequests.reduce((total, r) => total + r.hours, 0);
+  const pendingHours = pendingRequests
     .filter((r) => r.userId === session.user.id)
-    .reduce((total, r) => total + r.days, 0);
+    .reduce((total, r) => total + r.hours, 0);
 
   return (
     <div className="p-8">
@@ -89,15 +89,15 @@ export default async function HolidaysPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <p className="text-3xl font-bold text-green-600">{holidayBalance}</p>
-              <p className="text-sm text-muted-foreground">Days Available</p>
+              <p className="text-sm text-muted-foreground">Hours Available</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-muted/50">
-              <p className="text-3xl font-bold">{usedDays}</p>
-              <p className="text-sm text-muted-foreground">Days Used</p>
+              <p className="text-3xl font-bold">{usedHours}</p>
+              <p className="text-sm text-muted-foreground">Hours Used</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-muted/50">
-              <p className="text-3xl font-bold text-yellow-600">{pendingDays}</p>
-              <p className="text-sm text-muted-foreground">Days Pending</p>
+              <p className="text-3xl font-bold text-yellow-600">{pendingHours}</p>
+              <p className="text-sm text-muted-foreground">Hours Pending</p>
             </div>
           </div>
         </CardContent>
@@ -111,7 +111,7 @@ export default async function HolidaysPage() {
             <CardDescription>Submit a new holiday request</CardDescription>
           </CardHeader>
           <CardContent>
-            <HolidayRequestForm maxDays={holidayBalance} />
+            <HolidayRequestForm maxHours={holidayBalance} />
           </CardContent>
         </Card>
 
@@ -146,7 +146,7 @@ export default async function HolidaysPage() {
                         {formatDate(request.startDate)} - {formatDate(request.endDate)}
                       </p>
                       <p className="text-sm">
-                        <span className="font-medium">{request.days} days</span>
+                        <span className="font-medium">{request.hours} hours</span>
                       </p>
                       {request.reason && (
                         <p className="text-sm text-muted-foreground italic">
@@ -196,7 +196,7 @@ export default async function HolidaysPage() {
                       {formatDate(request.startDate)} - {formatDate(request.endDate)}
                     </p>
                     <p className="text-sm">
-                      <span className="font-medium">{request.days} days</span>
+                      <span className="font-medium">{request.hours} hours</span>
                     </p>
                   </div>
                 </div>

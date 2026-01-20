@@ -148,7 +148,7 @@ export function ScheduleCalendarWithDrop({
           const paidHours = totalHours - breakHours;
           return (
             <div className="mt-1.5 py-1 px-1.5 rounded bg-black/10 text-xs">
-              <span className="font-medium">{paidHours.toFixed(1)}h paid</span>
+              <span className="font-medium">{paidHours.toFixed(2)}h paid</span>
               {breakHours > 0 && (
                 <span className="opacity-80">
                   {" "}
