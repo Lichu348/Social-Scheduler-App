@@ -14,11 +14,40 @@ export async function GET(
     }
 
     const { id } = await params;
+    const isAdmin = session.user.role === "ADMIN";
+    const isManager = session.user.role === "MANAGER";
+
+    // For managers, get their assigned location IDs
+    let managerLocationIds: string[] = [];
+    if (isManager) {
+      const managerLocations = await prisma.locationStaff.findMany({
+        where: { userId: session.user.id },
+        select: { locationId: true },
+      });
+      managerLocationIds = managerLocations.map((l) => l.locationId);
+    }
 
     const item = await prisma.complianceItem.findUnique({
       where: { id },
       include: {
         userRecords: {
+          where: isAdmin
+            ? {} // Admins see all records
+            : isManager
+            ? {
+                // Managers see records for users at their locations
+                user: {
+                  locationAccess: {
+                    some: {
+                      locationId: { in: managerLocationIds },
+                    },
+                  },
+                },
+              }
+            : {
+                // Employees see only their own record
+                userId: session.user.id,
+              },
           include: {
             user: {
               select: {

@@ -40,10 +40,37 @@ export async function POST(
     // Verify user exists in organization
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      include: {
+        locationAccess: {
+          select: { locationId: true },
+        },
+      },
     });
 
     if (!user || user.organizationId !== session.user.organizationId) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Managers can only assign to users at their locations
+    if (session.user.role === "MANAGER") {
+      const managerLocations = await prisma.locationStaff.findMany({
+        where: { userId: session.user.id },
+        select: { locationId: true },
+      });
+      const managerLocationIds = managerLocations.map((l) => l.locationId);
+      const userLocationIds = user.locationAccess.map((l) => l.locationId);
+
+      // Check if user shares at least one location with manager
+      const hasSharedLocation = userLocationIds.some((id) =>
+        managerLocationIds.includes(id)
+      );
+
+      if (!hasSharedLocation) {
+        return NextResponse.json(
+          { error: "You can only assign compliance to users at your locations" },
+          { status: 403 }
+        );
+      }
     }
 
     // Calculate expiry if not provided

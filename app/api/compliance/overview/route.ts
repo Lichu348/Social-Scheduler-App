@@ -14,6 +14,7 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const isAdmin = session.user.role === "ADMIN";
     const now = new Date();
 
     // Get all compliance items
@@ -25,10 +26,30 @@ export async function GET() {
       orderBy: [{ type: "asc" }, { name: "asc" }],
     });
 
-    // Get all users
+    // For managers, get their assigned location IDs
+    let managerLocationIds: string[] = [];
+    if (!isAdmin) {
+      const managerLocations = await prisma.locationStaff.findMany({
+        where: { userId: session.user.id },
+        select: { locationId: true },
+      });
+      managerLocationIds = managerLocations.map((l) => l.locationId);
+    }
+
+    // Get users - admins see all, managers see only users at their locations
     const users = await prisma.user.findMany({
       where: {
         organizationId: session.user.organizationId,
+        // Managers only see users who share at least one location with them
+        ...(isAdmin
+          ? {}
+          : {
+              locationAccess: {
+                some: {
+                  locationId: { in: managerLocationIds },
+                },
+              },
+            }),
       },
       select: {
         id: true,
