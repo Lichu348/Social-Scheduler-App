@@ -88,7 +88,7 @@ export function StaffLocationsDialog({
             : `${assignedLocationIds.length} location${assignedLocationIds.length !== 1 ? "s" : ""}`}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Assign Locations</DialogTitle>
           <DialogDescription>

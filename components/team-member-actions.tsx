@@ -78,7 +78,7 @@ export function TeamMemberActions({ userId, currentRole, currentStaffRole }: Tea
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" sideOffset={4}>
         <DropdownMenuLabel>Permission Level</DropdownMenuLabel>
         {currentRole !== "ADMIN" && (
           <DropdownMenuItem onClick={() => handleRoleChange("ADMIN")}>
