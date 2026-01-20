@@ -131,6 +131,7 @@ export function ScheduleGrid({
   holidays = [],
 }: ScheduleGridProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<"day" | "week">("week");
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [quickAddData, setQuickAddData] = useState<{
     date: Date;
@@ -171,9 +172,10 @@ export function ScheduleGrid({
     return [...weekDates.slice(mondayIndex), ...weekDates.slice(0, mondayIndex)];
   }, [weekDates]);
 
-  const navigateWeek = (direction: "prev" | "next") => {
+  const navigate = (direction: "prev" | "next") => {
     const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + (direction === "next" ? 7 : -7));
+    const offset = viewMode === "week" ? 7 : 1;
+    newDate.setDate(newDate.getDate() + (direction === "next" ? offset : -offset));
     setCurrentDate(newDate);
   };
 
@@ -262,6 +264,14 @@ export function ScheduleGrid({
     return `${startMonth} ${start.getDate()} - ${endMonth} ${end.getDate()}, ${year}`;
   };
 
+  const formatDayDate = () => {
+    const dayName = currentDate.toLocaleDateString("en-GB", { weekday: "long" });
+    const month = currentDate.toLocaleDateString("en-GB", { month: "long" });
+    const day = currentDate.getDate();
+    const year = currentDate.getFullYear();
+    return `${dayName}, ${month} ${day}, ${year}`;
+  };
+
   const today = new Date();
 
   const renderShiftCard = (shift: Shift) => {
@@ -320,11 +330,13 @@ export function ScheduleGrid({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => navigateWeek("prev")}>
+            <Button variant="outline" size="icon" onClick={() => navigate("prev")}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h2 className="text-xl font-semibold">{formatDateRange()}</h2>
-            <Button variant="outline" size="icon" onClick={() => navigateWeek("next")}>
+            <h2 className="text-xl font-semibold min-w-[280px] text-center">
+              {viewMode === "week" ? formatDateRange() : formatDayDate()}
+            </h2>
+            <Button variant="outline" size="icon" onClick={() => navigate("next")}>
               <ChevronRight className="h-4 w-4" />
             </Button>
             {/* Calendar Date Picker */}
@@ -355,40 +367,86 @@ export function ScheduleGrid({
               )}
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
-            Today
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex rounded-md border overflow-hidden">
+              <button
+                onClick={() => setViewMode("day")}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium transition-colors",
+                  viewMode === "day"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background hover:bg-muted"
+                )}
+              >
+                Day
+              </button>
+              <button
+                onClick={() => setViewMode("week")}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium transition-colors border-l",
+                  viewMode === "week"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background hover:bg-muted"
+                )}
+              >
+                Week
+              </button>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+              Today
+            </Button>
+          </div>
         </div>
 
         {/* Grid */}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px]">
+          <table className="w-full min-w-[800px]">
             {/* Day Headers */}
             <thead>
               <tr className="border-b">
                 <th className="w-52 px-4 py-3 text-left bg-gray-50 border-r sticky left-0 z-10">
                   <span className="text-sm font-medium text-gray-500">Staff</span>
                 </th>
-                {orderedWeekDates.map((date, i) => {
-                  const isToday = isSameDay(date, today);
-                  return (
-                    <th
-                      key={i}
-                      className={cn(
-                        "px-3 py-3 text-center border-r last:border-r-0 min-w-[160px] w-[14%]",
-                        isToday && "bg-blue-50"
-                      )}
-                    >
-                      <p className="text-xs font-medium text-gray-500 uppercase">{dayNames[i]}</p>
-                      <p className={cn(
-                        "text-lg font-semibold",
-                        isToday ? "text-blue-600" : "text-gray-900"
-                      )}>
-                        {date.getDate()}
-                      </p>
-                    </th>
-                  );
-                })}
+                {viewMode === "week" ? (
+                  orderedWeekDates.map((date, i) => {
+                    const isToday = isSameDay(date, today);
+                    return (
+                      <th
+                        key={i}
+                        className={cn(
+                          "px-3 py-3 text-center border-r last:border-r-0 min-w-[120px] w-[14%]",
+                          isToday && "bg-blue-50"
+                        )}
+                      >
+                        <p className="text-xs font-medium text-gray-500 uppercase">{dayNames[i]}</p>
+                        <p className={cn(
+                          "text-lg font-semibold",
+                          isToday ? "text-blue-600" : "text-gray-900"
+                        )}>
+                          {date.getDate()}
+                        </p>
+                      </th>
+                    );
+                  })
+                ) : (
+                  <th
+                    className={cn(
+                      "px-4 py-3 text-center border-r",
+                      isSameDay(currentDate, today) && "bg-blue-50"
+                    )}
+                  >
+                    <p className="text-xs font-medium text-gray-500 uppercase">
+                      {currentDate.toLocaleDateString("en-GB", { weekday: "short" })}
+                    </p>
+                    <p className={cn(
+                      "text-lg font-semibold",
+                      isSameDay(currentDate, today) ? "text-blue-600" : "text-gray-900"
+                    )}>
+                      {currentDate.getDate()}
+                    </p>
+                  </th>
+                )}
               </tr>
             </thead>
 
@@ -406,45 +464,86 @@ export function ScheduleGrid({
                     </div>
                   </div>
                 </td>
-                {orderedWeekDates.map((date, i) => {
-                  const openShifts = getOpenShiftsForDate(date);
-                  const isToday = isSameDay(date, today);
+                {viewMode === "week" ? (
+                  orderedWeekDates.map((date, i) => {
+                    const openShifts = getOpenShiftsForDate(date);
+                    const isToday = isSameDay(date, today);
 
-                  const cellContent = (
-                    <div className="space-y-2 min-h-[100px]">
-                      {openShifts.map((shift) => renderShiftCard(shift))}
-                    </div>
-                  );
+                    const cellContent = (
+                      <div className="space-y-2 min-h-[100px]">
+                        {openShifts.map((shift) => renderShiftCard(shift))}
+                      </div>
+                    );
 
-                  if (enableDroppable) {
+                    if (enableDroppable) {
+                      return (
+                        <DroppableGridCell
+                          key={i}
+                          date={date}
+                          userId={null}
+                          isToday={isToday}
+                          isManager={isManager}
+                          onClick={() => handleCellClick(date, null)}
+                        >
+                          {cellContent}
+                        </DroppableGridCell>
+                      );
+                    }
+
                     return (
-                      <DroppableGridCell
+                      <td
                         key={i}
-                        date={date}
-                        userId={null}
-                        isToday={isToday}
-                        isManager={isManager}
+                        className={cn(
+                          "px-3 py-3 border-r last:border-r-0 align-top",
+                          isToday && "bg-blue-50/50",
+                          isManager && "cursor-pointer hover:bg-green-100/50"
+                        )}
                         onClick={() => handleCellClick(date, null)}
                       >
                         {cellContent}
-                      </DroppableGridCell>
+                      </td>
                     );
-                  }
+                  })
+                ) : (
+                  // Day view - single column
+                  (() => {
+                    const openShifts = getOpenShiftsForDate(currentDate);
+                    const isToday = isSameDay(currentDate, today);
 
-                  return (
-                    <td
-                      key={i}
-                      className={cn(
-                        "px-3 py-3 border-r last:border-r-0 align-top",
-                        isToday && "bg-blue-50/50",
-                        isManager && "cursor-pointer hover:bg-green-100/50"
-                      )}
-                      onClick={() => handleCellClick(date, null)}
-                    >
-                      {cellContent}
-                    </td>
-                  );
-                })}
+                    const cellContent = (
+                      <div className="space-y-2 min-h-[100px]">
+                        {openShifts.map((shift) => renderShiftCard(shift))}
+                      </div>
+                    );
+
+                    if (enableDroppable) {
+                      return (
+                        <DroppableGridCell
+                          date={currentDate}
+                          userId={null}
+                          isToday={isToday}
+                          isManager={isManager}
+                          onClick={() => handleCellClick(currentDate, null)}
+                        >
+                          {cellContent}
+                        </DroppableGridCell>
+                      );
+                    }
+
+                    return (
+                      <td
+                        className={cn(
+                          "px-4 py-3 border-r align-top",
+                          isToday && "bg-blue-50/50",
+                          isManager && "cursor-pointer hover:bg-green-100/50"
+                        )}
+                        onClick={() => handleCellClick(currentDate, null)}
+                      >
+                        {cellContent}
+                      </td>
+                    );
+                  })()
+                )}
               </tr>
 
               {/* User Rows */}
@@ -467,68 +566,130 @@ export function ScheduleGrid({
                             {user.name}
                             {isCurrentUser && <span className="text-blue-500 ml-1">(You)</span>}
                           </p>
-                          <p className="text-xs text-gray-500">{totalHours}h this week</p>
+                          <p className="text-xs text-gray-500">
+                            {viewMode === "week" ? `${totalHours}h this week` : ""}
+                          </p>
                         </div>
                       </div>
                     </td>
-                    {orderedWeekDates.map((date, i) => {
-                      const userShifts = getShiftsForUserAndDate(user.id, date);
-                      const isToday = isSameDay(date, today);
-                      const hasAvailability = isUserAvailable(user.id, date);
-                      const hasNoAvailability = availability.length > 0 && !hasAvailability && userShifts.length === 0;
-                      const holiday = getUserHolidayForDate(user.id, date);
+                    {viewMode === "week" ? (
+                      orderedWeekDates.map((date, i) => {
+                        const userShifts = getShiftsForUserAndDate(user.id, date);
+                        const isToday = isSameDay(date, today);
+                        const hasAvailability = isUserAvailable(user.id, date);
+                        const hasNoAvailability = availability.length > 0 && !hasAvailability && userShifts.length === 0;
+                        const holiday = getUserHolidayForDate(user.id, date);
 
-                      const cellContent = (
-                        <div className="space-y-2 min-h-[100px]">
-                          {holiday && (
-                            <div className="w-full text-left px-3 py-2 rounded-md text-sm font-medium bg-purple-500 text-white shadow-md">
-                              <div className="font-bold">Holiday</div>
-                              <div className="text-xs opacity-80 mt-0.5">
-                                {holiday.hours}h off
+                        const cellContent = (
+                          <div className="space-y-2 min-h-[100px]">
+                            {holiday && (
+                              <div className="w-full text-left px-3 py-2 rounded-md text-sm font-medium bg-purple-500 text-white shadow-md">
+                                <div className="font-bold">Holiday</div>
+                                <div className="text-xs opacity-80 mt-0.5">
+                                  {holiday.hours}h off
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          {userShifts.length > 0 ? (
-                            userShifts.map((shift) => renderShiftCard(shift))
-                          ) : !holiday && hasNoAvailability ? (
-                            <div className="text-xs text-gray-400 uppercase font-medium py-4 text-center">
-                              Unavailable
-                            </div>
-                          ) : null}
-                        </div>
-                      );
+                            )}
+                            {userShifts.length > 0 ? (
+                              userShifts.map((shift) => renderShiftCard(shift))
+                            ) : !holiday && hasNoAvailability ? (
+                              <div className="text-xs text-gray-400 uppercase font-medium py-4 text-center">
+                                Unavailable
+                              </div>
+                            ) : null}
+                          </div>
+                        );
 
-                      if (enableDroppable) {
+                        if (enableDroppable) {
+                          return (
+                            <DroppableGridCell
+                              key={i}
+                              date={date}
+                              userId={user.id}
+                              isToday={isToday}
+                              isManager={isManager}
+                              hasNoAvailability={hasNoAvailability}
+                              onClick={() => handleCellClick(date, user.id)}
+                            >
+                              {cellContent}
+                            </DroppableGridCell>
+                          );
+                        }
+
                         return (
-                          <DroppableGridCell
+                          <td
                             key={i}
-                            date={date}
-                            userId={user.id}
-                            isToday={isToday}
-                            isManager={isManager}
-                            hasNoAvailability={hasNoAvailability}
+                            className={cn(
+                              "px-3 py-3 border-r last:border-r-0 align-top transition-colors",
+                              isToday && "bg-blue-50/50",
+                              hasNoAvailability && "bg-gray-100",
+                              isManager && "cursor-pointer hover:bg-gray-50"
+                            )}
                             onClick={() => handleCellClick(date, user.id)}
                           >
                             {cellContent}
-                          </DroppableGridCell>
+                          </td>
                         );
-                      }
+                      })
+                    ) : (
+                      // Day view - single column
+                      (() => {
+                        const userShifts = getShiftsForUserAndDate(user.id, currentDate);
+                        const isToday = isSameDay(currentDate, today);
+                        const hasAvailability = isUserAvailable(user.id, currentDate);
+                        const hasNoAvailability = availability.length > 0 && !hasAvailability && userShifts.length === 0;
+                        const holiday = getUserHolidayForDate(user.id, currentDate);
 
-                      return (
-                        <td
-                          key={i}
-                          className={cn(
-                            "px-3 py-3 border-r last:border-r-0 align-top transition-colors",
-                            isToday && "bg-blue-50/50",
-                            hasNoAvailability && "bg-gray-100",
-                            isManager && "cursor-pointer hover:bg-gray-50"
-                          )}
-                          onClick={() => handleCellClick(date, user.id)}
-                        >
-                          {cellContent}
-                        </td>
-                      );
-                    })}
+                        const cellContent = (
+                          <div className="space-y-2 min-h-[100px]">
+                            {holiday && (
+                              <div className="w-full text-left px-3 py-2 rounded-md text-sm font-medium bg-purple-500 text-white shadow-md">
+                                <div className="font-bold">Holiday</div>
+                                <div className="text-xs opacity-80 mt-0.5">
+                                  {holiday.hours}h off
+                                </div>
+                              </div>
+                            )}
+                            {userShifts.length > 0 ? (
+                              userShifts.map((shift) => renderShiftCard(shift))
+                            ) : !holiday && hasNoAvailability ? (
+                              <div className="text-xs text-gray-400 uppercase font-medium py-4 text-center">
+                                Unavailable
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+
+                        if (enableDroppable) {
+                          return (
+                            <DroppableGridCell
+                              date={currentDate}
+                              userId={user.id}
+                              isToday={isToday}
+                              isManager={isManager}
+                              hasNoAvailability={hasNoAvailability}
+                              onClick={() => handleCellClick(currentDate, user.id)}
+                            >
+                              {cellContent}
+                            </DroppableGridCell>
+                          );
+                        }
+
+                        return (
+                          <td
+                            className={cn(
+                              "px-4 py-3 border-r align-top transition-colors",
+                              isToday && "bg-blue-50/50",
+                              hasNoAvailability && "bg-gray-100",
+                              isManager && "cursor-pointer hover:bg-gray-50"
+                            )}
+                            onClick={() => handleCellClick(currentDate, user.id)}
+                          >
+                            {cellContent}
+                          </td>
+                        );
+                      })()
+                    )}
                   </tr>
                 );
               })}
