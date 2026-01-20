@@ -60,6 +60,7 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ShiftCategory[]>([]);
   const [certWarning, setCertWarning] = useState<CertificationWarning | null>(null);
   const [checkingCerts, setCheckingCerts] = useState(false);
@@ -148,6 +149,7 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     try {
       const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
@@ -167,6 +169,8 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setOpen(false);
         setFormData({
@@ -180,9 +184,12 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
           locationId: defaultLocationId || "",
         });
         router.refresh();
+      } else {
+        setError(data.error || "Failed to create shift. Please try logging out and back in.");
       }
     } catch (error) {
       console.error("Failed to create shift:", error);
+      setError("Failed to create shift. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -219,6 +226,11 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          {error && (
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive mb-4">
+              {error}
+            </div>
+          )}
           <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2">
             <div className="space-y-2">
               <Label htmlFor="title">Shift Title</Label>

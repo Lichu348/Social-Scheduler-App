@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { name, address, latitude, longitude, clockInRadiusMetres } = await req.json();
+    const { name, address, latitude, longitude, clockInRadiusMetres, breakRules } = await req.json();
 
     if (!name) {
       return NextResponse.json(
@@ -56,6 +56,7 @@ export async function POST(req: Request) {
         latitude: latitude ?? null,
         longitude: longitude ?? null,
         clockInRadiusMetres: clockInRadiusMetres ?? 100,
+        breakRules: breakRules || null,
         organizationId: session.user.organizationId,
       },
     });

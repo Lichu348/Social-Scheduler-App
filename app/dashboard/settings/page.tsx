@@ -10,6 +10,7 @@ import { ClockSettingsForm } from "@/components/clock-settings-form";
 import { LocationSettingsForm } from "@/components/location-settings-form";
 import { LocationsManager } from "@/components/locations-manager";
 import { CertificationsManager } from "@/components/certifications-manager";
+import { StaffRolesManager } from "@/components/staff-roles-manager";
 import { AvailabilityForm } from "@/components/availability-form";
 
 async function getSettingsData(userId: string, organizationId: string) {
@@ -101,6 +102,21 @@ export default async function SettingsPage() {
             </CardHeader>
             <CardContent>
               <OrganizationForm organization={organization} />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Staff Roles (Admin only) */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Staff Roles</CardTitle>
+              <CardDescription>
+                Configure job roles for your team (e.g., Front Desk, Coach, Setter)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <StaffRolesManager />
             </CardContent>
           </Card>
         )}

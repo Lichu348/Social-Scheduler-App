@@ -2,15 +2,25 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BreakRulesEditor } from "@/components/break-rules-editor";
+import { BreakRulesWithLocations } from "@/components/break-rules-with-locations";
 
 async function getBreakRulesData(organizationId: string) {
-  const organization = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { breakRules: true },
-  });
+  const [organization, locations] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { breakRules: true },
+    }),
+    prisma.location.findMany({
+      where: { organizationId, isActive: true },
+      select: { id: true, name: true, breakRules: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
-  return { breakRules: organization?.breakRules || "[]" };
+  return {
+    organizationBreakRules: organization?.breakRules || "[]",
+    locations,
+  };
 }
 
 export default async function BreakRulesPage() {
@@ -22,7 +32,9 @@ export default async function BreakRulesPage() {
     redirect("/dashboard");
   }
 
-  const { breakRules } = await getBreakRulesData(session.user.organizationId);
+  const { organizationBreakRules, locations } = await getBreakRulesData(
+    session.user.organizationId
+  );
 
   return (
     <div className="p-8 max-w-4xl">
@@ -34,18 +46,10 @@ export default async function BreakRulesPage() {
       </div>
 
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Automatic Break Configuration</CardTitle>
-            <CardDescription>
-              Set how many minutes of unpaid break are automatically assigned to shifts based on their length.
-              Staff will see these breaks displayed on their schedule.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BreakRulesEditor breakRules={breakRules} />
-          </CardContent>
-        </Card>
+        <BreakRulesWithLocations
+          organizationBreakRules={organizationBreakRules}
+          locations={locations}
+        />
 
         <Card>
           <CardHeader>
@@ -54,7 +58,7 @@ export default async function BreakRulesPage() {
           <CardContent className="text-sm text-muted-foreground space-y-3">
             <p>
               When a shift is created, the system automatically calculates the unpaid break time based on
-              the rules you configure here. The break with the highest qualifying threshold is applied.
+              the rules you configure. Location-specific rules override organization defaults.
             </p>
             <p>
               <strong>Example:</strong> If you set 3+ hours = 15 min and 6+ hours = 30 min, then:

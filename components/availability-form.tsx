@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Clock, Plus, Trash2 } from "lucide-react";
+import { Clock, Plus, Trash2, Calendar } from "lucide-react";
 
 interface Availability {
   id: string;
@@ -14,6 +14,7 @@ interface Availability {
   startTime: string;
   endTime: string;
   isRecurring: boolean;
+  specificDate: string | null;
   notes: string | null;
 }
 
@@ -33,10 +34,12 @@ export function AvailabilityForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [mode, setMode] = useState<"recurring" | "specific">("recurring");
   const [formData, setFormData] = useState({
     dayOfWeek: 1,
     startTime: "09:00",
     endTime: "17:00",
+    specificDate: "",
     notes: "",
   });
 
@@ -62,19 +65,30 @@ export function AvailabilityForm() {
     e.preventDefault();
     setSaving(true);
     try {
+      const isRecurring = mode === "recurring";
+      const payload: Record<string, unknown> = {
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        notes: formData.notes || null,
+        isRecurring,
+      };
+
+      if (isRecurring) {
+        payload.dayOfWeek = formData.dayOfWeek;
+      } else {
+        // For date-specific, extract day of week from the date
+        const date = new Date(formData.specificDate);
+        payload.dayOfWeek = date.getDay();
+        payload.specificDate = formData.specificDate;
+      }
+
       const res = await fetch("/api/availability", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dayOfWeek: formData.dayOfWeek,
-          startTime: formData.startTime,
-          endTime: formData.endTime,
-          notes: formData.notes || null,
-          isRecurring: true,
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
-        setFormData({ dayOfWeek: 1, startTime: "09:00", endTime: "17:00", notes: "" });
+        setFormData({ dayOfWeek: 1, startTime: "09:00", endTime: "17:00", specificDate: "", notes: "" });
         setShowForm(false);
         fetchAvailability();
         router.refresh();
@@ -98,67 +112,158 @@ export function AvailabilityForm() {
     }
   };
 
-  // Group availability by day
+  // Separate recurring and date-specific availability
+  const recurringAvailability = availability.filter((a) => a.isRecurring);
+  const specificAvailability = availability.filter((a) => !a.isRecurring);
+
+  // Group recurring availability by day
   const groupedByDay = DAYS.map((day) => ({
     ...day,
-    slots: availability.filter((a) => a.dayOfWeek === day.value),
+    slots: recurringAvailability.filter((a) => a.dayOfWeek === day.value),
   }));
+
+  // Sort date-specific by date
+  const sortedSpecific = [...specificAvailability].sort((a, b) => {
+    if (!a.specificDate || !b.specificDate) return 0;
+    return new Date(a.specificDate).getTime() - new Date(b.specificDate).getTime();
+  });
 
   if (loading) {
     return <div className="text-center py-4">Loading availability...</div>;
   }
 
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Set your regular weekly availability so managers know when you can work.
-      </p>
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  };
 
-      <div className="space-y-3">
-        {groupedByDay.map((day) => (
-          <div key={day.value} className="border rounded-lg p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-medium">{day.label}</span>
-              {day.slots.length === 0 && (
-                <span className="text-xs text-muted-foreground">Not available</span>
+  return (
+    <div className="space-y-6">
+      {/* Regular Weekly Availability */}
+      <div>
+        <h3 className="font-medium mb-3 flex items-center gap-2">
+          <Clock className="h-4 w-4" />
+          Regular Weekly Availability
+        </h3>
+        <p className="text-sm text-muted-foreground mb-3">
+          Your typical availability each week
+        </p>
+        <div className="space-y-3">
+          {groupedByDay.map((day) => (
+            <div key={day.value} className="border rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium">{day.label}</span>
+                {day.slots.length === 0 && (
+                  <span className="text-xs text-muted-foreground">Not available</span>
+                )}
+              </div>
+              {day.slots.length > 0 && (
+                <div className="space-y-2">
+                  {day.slots.map((slot) => (
+                    <div key={slot.id} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          {slot.startTime} - {slot.endTime}
+                        </span>
+                        {slot.notes && (
+                          <span className="text-xs text-muted-foreground">({slot.notes})</span>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(slot.id)}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-            {day.slots.length > 0 && (
-              <div className="space-y-2">
-                {day.slots.map((slot) => (
-                  <div key={slot.id} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">
-                        {slot.startTime} - {slot.endTime}
-                      </span>
-                      {slot.notes && (
-                        <span className="text-xs text-muted-foreground">({slot.notes})</span>
-                      )}
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(slot.id)}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
+      {/* Date-Specific Availability */}
+      <div>
+        <h3 className="font-medium mb-3 flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          Date-Specific Availability
+        </h3>
+        <p className="text-sm text-muted-foreground mb-3">
+          One-time availability changes for specific dates
+        </p>
+        {sortedSpecific.length === 0 ? (
+          <p className="text-sm text-muted-foreground border rounded-lg p-3">No date-specific availability set</p>
+        ) : (
+          <div className="space-y-2">
+            {sortedSpecific.map((slot) => (
+              <div key={slot.id} className="flex items-center justify-between bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded px-3 py-2">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium">{slot.specificDate && formatDate(slot.specificDate)}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {slot.startTime} - {slot.endTime}
+                  </span>
+                  {slot.notes && (
+                    <span className="text-xs text-muted-foreground">({slot.notes})</span>
+                  )}
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(slot.id)}>
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add Form */}
       {showForm ? (
         <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg">
+          {/* Mode Selector */}
+          <div className="flex gap-2 mb-4">
+            <Button
+              type="button"
+              variant={mode === "recurring" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMode("recurring")}
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Weekly Recurring
+            </Button>
+            <Button
+              type="button"
+              variant={mode === "specific" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMode("specific")}
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Specific Date
+            </Button>
+          </div>
+
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="day">Day</Label>
-              <Select
-                id="day"
-                options={DAYS.map((d) => ({ value: d.value.toString(), label: d.label }))}
-                value={formData.dayOfWeek.toString()}
-                onChange={(e) => setFormData({ ...formData, dayOfWeek: parseInt(e.target.value) })}
-              />
-            </div>
+            {mode === "recurring" ? (
+              <div className="space-y-2">
+                <Label htmlFor="day">Day</Label>
+                <Select
+                  id="day"
+                  options={DAYS.map((d) => ({ value: d.value.toString(), label: d.label }))}
+                  value={formData.dayOfWeek.toString()}
+                  onChange={(e) => setFormData({ ...formData, dayOfWeek: parseInt(e.target.value) })}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="specificDate">Date</Label>
+                <Input
+                  id="specificDate"
+                  type="date"
+                  value={formData.specificDate}
+                  onChange={(e) => setFormData({ ...formData, specificDate: e.target.value })}
+                  required={mode === "specific"}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="startTime">Start Time</Label>
               <Input
@@ -184,7 +289,7 @@ export function AvailabilityForm() {
             <Label htmlFor="notes">Notes (optional)</Label>
             <Input
               id="notes"
-              placeholder="e.g., Prefer morning shifts"
+              placeholder={mode === "specific" ? "e.g., Doctor's appointment in afternoon" : "e.g., Prefer morning shifts"}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />

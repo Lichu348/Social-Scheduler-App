@@ -59,7 +59,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const { name, address, latitude, longitude, clockInRadiusMetres, isActive } = await req.json();
+    const { name, address, latitude, longitude, clockInRadiusMetres, isActive, breakRules } = await req.json();
 
     const location = await prisma.location.findUnique({
       where: { id },
@@ -78,6 +78,7 @@ export async function PATCH(
         longitude: longitude !== undefined ? longitude : undefined,
         clockInRadiusMetres: clockInRadiusMetres !== undefined ? clockInRadiusMetres : undefined,
         isActive: isActive !== undefined ? isActive : undefined,
+        breakRules: breakRules !== undefined ? breakRules : undefined,
       },
     });
 

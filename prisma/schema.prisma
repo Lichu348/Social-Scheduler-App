@@ -36,6 +36,7 @@ model Organization {
   locations          Location[]
   certificationTypes CertificationType[]
   trainingDocuments  TrainingDocument[]
+  staffRoles         StaffRole[]
 }
 
 model User {
@@ -298,6 +299,24 @@ model Notification {
   @@index([createdAt])
 }
 
+// Custom job roles
+model StaffRole {
+  id          String   @id @default(cuid())
+  name        String   // "Front Desk", "Coach", "Route Setter", etc.
+  code        String   // "DESK", "COACH", "SETTER" - used in user.staffRole
+  description String?
+  color       String   @default("#6b7280") // For display
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
 // Multi-location support
 model Location {
   id        String   @id @default(cuid())
@@ -307,6 +326,8 @@ model Location {
   longitude Float?
   clockInRadiusMetres Int @default(100)
   isActive  Boolean  @default(true)
+  // Per-location break rules override org defaults (null = use org rules)
+  breakRules String? // JSON array: [{"minHours":4,"breakMinutes":15},...]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

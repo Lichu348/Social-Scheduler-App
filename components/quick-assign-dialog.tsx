@@ -53,6 +53,7 @@ interface QuickAssignDialogProps {
   targetDate: Date | null;
   users: User[];
   locationId?: string | null;
+  defaultUserId?: string | null;
   onSuccess?: () => void;
 }
 
@@ -63,6 +64,7 @@ export function QuickAssignDialog({
   targetDate,
   users,
   locationId,
+  defaultUserId,
   onSuccess,
 }: QuickAssignDialogProps) {
   const router = useRouter();
@@ -75,11 +77,11 @@ export function QuickAssignDialog({
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
-      setAssignedToId("");
+      setAssignedToId(defaultUserId || "");
       setError(null);
       setCertWarning(null);
     }
-  }, [open]);
+  }, [open, defaultUserId]);
 
   // Check certifications when user selection changes
   useEffect(() => {

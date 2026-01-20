@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { ScheduleWithDnd } from "@/components/schedule-with-dnd";
+import { ScheduleGridWithDnd } from "@/components/schedule-grid-with-dnd";
 import { CreateShiftDialog } from "@/components/create-shift-dialog";
 import { LocationScheduleFilter } from "@/components/location-schedule-filter";
 
@@ -56,7 +56,7 @@ async function getScheduleData(organizationId: string, userId: string, role: str
       ? { locationId: filterLocationId }
       : (userLocationIds.length > 0 ? { locationId: { in: userLocationIds } } : {}));
 
-  const [shifts, users, organization, allLocations] = await Promise.all([
+  const [shifts, users, organization, allLocations, availability] = await Promise.all([
     prisma.shift.findMany({
       where: {
         organizationId,
@@ -95,6 +95,20 @@ async function getScheduleData(organizationId: string, userId: string, role: str
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.staffAvailability.findMany({
+      where: {
+        user: { organizationId },
+      },
+      select: {
+        id: true,
+        userId: true,
+        dayOfWeek: true,
+        startTime: true,
+        endTime: true,
+        isRecurring: true,
+        specificDate: true,
+      },
+    }),
   ]);
 
   return {
@@ -106,6 +120,10 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     currentLocationId: filterLocationId,
     userLocationIds,
     isMultiLocation: userLocationIds.length > 1,
+    availability: availability.map((a) => ({
+      ...a,
+      specificDate: a.specificDate?.toISOString() || null,
+    })),
   };
 }
 
@@ -129,6 +147,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
     currentLocationId,
     userLocationIds,
     isMultiLocation,
+    availability,
   } = await getScheduleData(
     session.user.organizationId,
     session.user.id,
@@ -182,11 +201,12 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
         </div>
       )}
 
-      <ScheduleWithDnd
+      <ScheduleGridWithDnd
         shifts={shifts}
         users={users}
         currentUserId={session.user.id}
         isManager={isManager}
+        availability={availability}
         locationId={currentLocationId}
         showSidebar={isManager}
       />

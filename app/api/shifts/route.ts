@@ -79,6 +79,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Verify the current user still exists (session might be stale after DB changes)
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true },
+    });
+
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: "Session expired. Please log out and log back in." },
+        { status: 401 }
+      );
+    }
+
     const { title, description, startTime, endTime, assignedToId, categoryId, locationId } = await req.json();
 
     if (!title || !startTime || !endTime) {
@@ -104,18 +117,34 @@ export async function POST(req: Request) {
       }
     }
 
-    // Get organization break rules
-    const organization = await prisma.organization.findUnique({
-      where: { id: session.user.organizationId },
-      select: { breakRules: true },
-    });
+    // Get break rules: location-specific if provided, otherwise organization defaults
+    let breakRulesJson = "[]";
+
+    if (locationId) {
+      const location = await prisma.location.findUnique({
+        where: { id: locationId },
+        select: { breakRules: true },
+      });
+      if (location?.breakRules) {
+        breakRulesJson = location.breakRules;
+      }
+    }
+
+    // Fall back to organization break rules if location doesn't have custom rules
+    if (breakRulesJson === "[]") {
+      const organization = await prisma.organization.findUnique({
+        where: { id: session.user.organizationId },
+        select: { breakRules: true },
+      });
+      breakRulesJson = organization?.breakRules || "[]";
+    }
 
     const shiftStartTime = new Date(startTime);
     const shiftEndTime = new Date(endTime);
     const scheduledBreakMinutes = calculateScheduledBreak(
       shiftStartTime,
       shiftEndTime,
-      organization?.breakRules || "[]"
+      breakRulesJson
     );
 
     const shift = await prisma.shift.create({
