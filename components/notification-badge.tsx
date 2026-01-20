@@ -113,8 +113,8 @@ export function NotificationBadge() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end" side="top" sideOffset={8}>
-        <div className="flex items-center justify-between p-3 border-b">
+      <PopoverContent className="w-80 max-w-[90vw] p-0 max-h-[70vh] flex flex-col" align="end" side="top" sideOffset={8}>
+        <div className="flex items-center justify-between p-3 border-b flex-shrink-0">
           <h4 className="font-semibold">Notifications</h4>
           {unreadCount > 0 && (
             <Button
@@ -127,7 +127,7 @@ export function NotificationBadge() {
             </Button>
           )}
         </div>
-        <div className="max-h-96 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               Loading...
