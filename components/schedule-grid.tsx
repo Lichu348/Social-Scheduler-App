@@ -561,14 +561,14 @@ export function ScheduleGrid({
                         )}>
                           {user.name.charAt(0).toUpperCase()}
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-sm text-gray-900">
                             {user.name}
                             {isCurrentUser && <span className="text-blue-500 ml-1">(You)</span>}
-                          </p>
-                          <p className="text-xs text-gray-500">
+                          </span>
+                          <span className="text-xs text-gray-500">
                             {viewMode === "week" ? `${totalHours}h this week` : ""}
-                          </p>
+                          </span>
                         </div>
                       </div>
                     </td>
