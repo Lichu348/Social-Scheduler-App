@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { TeamMemberActions } from "@/components/team-member-actions";
 import { StaffLocationsDialog } from "@/components/staff-locations-dialog";
 import { UserRatesDialog } from "@/components/user-rates-dialog";
+import { PaymentTypeSelector } from "@/components/payment-type-selector";
 import { UserPlus } from "lucide-react";
 
 async function getTeamData(organizationId: string) {
@@ -20,6 +21,7 @@ async function getTeamData(organizationId: string) {
         email: true,
         role: true,
         staffRole: true,
+        paymentType: true,
         phone: true,
         holidayBalance: true,
         createdAt: true,
@@ -199,6 +201,15 @@ export default async function TeamPage() {
                     <p className="text-sm font-medium">{user.holidayBalance}h</p>
                     <p className="text-xs text-muted-foreground">Holiday</p>
                   </div>
+                  {isAdmin && (
+                    <div className="text-right">
+                      <PaymentTypeSelector
+                        userId={user.id}
+                        currentPaymentType={user.paymentType}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Pay Type</p>
+                    </div>
+                  )}
                   {isAdmin && (
                     <UserRatesDialog
                       userId={user.id}

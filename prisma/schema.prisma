@@ -418,6 +418,7 @@ model User {
   password          String
   role              String              @default("EMPLOYEE")
   staffRole         String              @default("DESK")
+  paymentType       String              @default("HOURLY") // "HOURLY" or "MONTHLY"
   avatarUrl         String?
   phone             String?
   holidayBalance    Int                 @default(200)

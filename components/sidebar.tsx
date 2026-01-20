@@ -20,6 +20,7 @@ import {
   Layers,
   ShieldCheck,
   Wrench,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -43,6 +44,7 @@ const navigation = [
   { name: "Team", href: "/dashboard/team", icon: Users },
   { name: "Compliance", href: "/dashboard/compliance", icon: ShieldCheck },
   { name: "Maintenance", href: "/dashboard/maintenance", icon: Wrench },
+  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, managerOnly: true },
   { name: "Locations", href: "/dashboard/locations", icon: MapPin, managerOnly: true },
   { name: "Shift Types", href: "/dashboard/shift-types", icon: Layers, adminOnly: true },
   { name: "Break Rules", href: "/dashboard/break-rules", icon: Coffee, adminOnly: true },
