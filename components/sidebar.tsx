@@ -14,12 +14,11 @@ import {
   Home,
   ArrowLeftRight,
   CalendarClock,
-  Award,
   MapPin,
   FileSpreadsheet,
   Coffee,
-  BookOpen,
   Layers,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -41,8 +40,7 @@ const navigation = [
   { name: "Shift Swaps", href: "/dashboard/swaps", icon: ArrowLeftRight },
   { name: "Holidays", href: "/dashboard/holidays", icon: Palmtree },
   { name: "Team", href: "/dashboard/team", icon: Users },
-  { name: "Certifications", href: "/dashboard/certifications", icon: Award, managerOnly: true },
-  { name: "Training", href: "/dashboard/training", icon: BookOpen },
+  { name: "Compliance", href: "/dashboard/compliance", icon: ShieldCheck },
   { name: "Locations", href: "/dashboard/locations", icon: MapPin, managerOnly: true },
   { name: "Shift Types", href: "/dashboard/shift-types", icon: Layers, adminOnly: true },
   { name: "Break Rules", href: "/dashboard/break-rules", icon: Coffee, adminOnly: true },

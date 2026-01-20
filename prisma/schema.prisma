@@ -150,6 +150,7 @@ model Organization {
   requireGeolocation   Boolean             @default(true)
   announcements        Announcement[]
   certificationTypes   CertificationType[]
+  complianceItems      ComplianceItem[]
   locations            Location[]
   shifts               Shift[]
   shiftCategories      ShiftCategory[]
@@ -308,6 +309,62 @@ model TimeEntry {
   @@index([userId])
 }
 
+// UNIFIED COMPLIANCE SYSTEM
+// Merges Training (policies to acknowledge) and Certifications (qualifications to track)
+model ComplianceItem {
+  id               String           @id @default(cuid())
+  name             String           // "Fire Safety Policy" or "First Aid Certificate"
+  description      String?
+  type             String           // "POLICY" or "QUALIFICATION"
+  validityMonths   Int              @default(12)
+  isRequired       Boolean          @default(false)
+  requiredForRoles String           @default("[]") // JSON array of staff roles
+  // For POLICY type (document to read/acknowledge)
+  fileUrl          String?
+  fileName         String?
+  // For QUALIFICATION type
+  requiresProof    Boolean          @default(false) // Whether to upload certificate
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  organizationId   String
+  organization     Organization     @relation(fields: [organizationId], references: [id])
+  userRecords      UserCompliance[]
+
+  @@index([organizationId])
+  @@index([type])
+}
+
+model UserCompliance {
+  id                String         @id @default(cuid())
+  // Dates
+  issueDate         DateTime       @default(now()) // When issued/acknowledged
+  expiryDate        DateTime       // When it expires
+  // Signature
+  signature         String?        // User's digital signature (typed name)
+  signedAt          DateTime?      // When they signed
+  // For QUALIFICATIONs
+  certificateNumber String?        // External certificate number
+  proofUrl          String?        // Uploaded certificate image
+  notes             String?
+  // Status
+  status            String         @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  // Relations
+  userId            String
+  complianceItemId  String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  user             User           @relation(fields: [userId], references: [id])
+  complianceItem   ComplianceItem @relation(fields: [complianceItemId], references: [id])
+
+  @@unique([userId, complianceItemId])
+  @@index([userId])
+  @@index([complianceItemId])
+  @@index([expiryDate])
+}
+
+// DEPRECATED - Keep temporarily for migration, remove after data migrated
 model TrainingDocument {
   id               String            @id @default(cuid())
   title            String
@@ -373,6 +430,7 @@ model User {
   primaryLocation   Location?           @relation(fields: [primaryLocationId], references: [id])
   certifications    UserCertification[]
   categoryRates     UserCategoryRate[]
+  complianceRecords UserCompliance[]
 
   @@index([email])
   @@index([organizationId])

@@ -9,7 +9,6 @@ import { BreakRulesForm } from "@/components/break-rules-form";
 import { ClockSettingsForm } from "@/components/clock-settings-form";
 import { LocationSettingsForm } from "@/components/location-settings-form";
 import { LocationsManager } from "@/components/locations-manager";
-import { CertificationsManager } from "@/components/certifications-manager";
 import { StaffRolesManager } from "@/components/staff-roles-manager";
 import { AvailabilityForm } from "@/components/availability-form";
 
@@ -201,21 +200,6 @@ export default async function SettingsPage() {
             </CardHeader>
             <CardContent>
               <LocationsManager />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Certifications (Admin only) */}
-        {isAdmin && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Certifications</CardTitle>
-              <CardDescription>
-                Manage certification types and track staff qualifications
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CertificationsManager />
             </CardContent>
           </Card>
         )}
