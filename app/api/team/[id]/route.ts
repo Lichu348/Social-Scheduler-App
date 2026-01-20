@@ -94,15 +94,57 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    await prisma.user.delete({
-      where: { id },
+    // Delete all related records in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Unassign from shifts (don't delete the shifts, just unassign)
+      await tx.shift.updateMany({
+        where: { assignedToId: id },
+        data: { assignedToId: null, isOpen: true },
+      });
+
+      // Clear createdBy reference on shifts
+      await tx.shift.updateMany({
+        where: { createdById: id },
+        data: { createdById: null },
+      });
+
+      // Delete related records
+      await tx.holidayRequest.deleteMany({ where: { userId: id } });
+      await tx.locationStaff.deleteMany({ where: { userId: id } });
+      await tx.notification.deleteMany({ where: { userId: id } });
+      await tx.staffAvailability.deleteMany({ where: { userId: id } });
+      await tx.timeEntry.deleteMany({ where: { userId: id } });
+      await tx.userCertification.deleteMany({ where: { userId: id } });
+      await tx.userCategoryRate.deleteMany({ where: { userId: id } });
+      await tx.userCompliance.deleteMany({ where: { userId: id } });
+
+      // Handle swap requests
+      await tx.swapRequest.deleteMany({
+        where: { OR: [{ fromUserId: id }, { toUserId: id }] },
+      });
+
+      // Handle messages
+      await tx.messageRead.deleteMany({ where: { userId: id } });
+      await tx.message.deleteMany({
+        where: { OR: [{ senderId: id }, { receiverId: id }] },
+      });
+
+      // Handle training signoffs (if table exists)
+      try {
+        await tx.trainingSignoff.deleteMany({ where: { userId: id } });
+      } catch {
+        // Table might not exist
+      }
+
+      // Finally delete the user
+      await tx.user.delete({ where: { id } });
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete user error:", error);
     return NextResponse.json(
-      { error: "Failed to delete user" },
+      { error: "Failed to delete user. They may have records that cannot be removed." },
       { status: 500 }
     );
   }

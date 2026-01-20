@@ -173,14 +173,14 @@ model Shift {
   updatedAt             DateTime       @updatedAt
   organizationId        String
   assignedToId          String?
-  createdById           String
+  createdById           String?
   templateId            String?
   categoryId            String?
   locationId            String?
   messages              Message[]
   assignedTo            User?          @relation("Shift_assignedToIdToUser", fields: [assignedToId], references: [id])
   category              ShiftCategory? @relation(fields: [categoryId], references: [id])
-  createdBy             User           @relation("Shift_createdByIdToUser", fields: [createdById], references: [id])
+  createdBy             User?          @relation("Shift_createdByIdToUser", fields: [createdById], references: [id])
   location              Location?      @relation(fields: [locationId], references: [id])
   organization          Organization   @relation(fields: [organizationId], references: [id])
   template              ShiftTemplate? @relation(fields: [templateId], references: [id])
