@@ -62,8 +62,10 @@ export default async function HolidaysPage() {
     }
   };
 
-  // Calculate used and pending days
-  const usedHours = approvedRequests.reduce((total, r) => total + r.hours, 0);
+  // Calculate used and pending days (for current user only)
+  const usedHours = approvedRequests
+    .filter((r) => r.userId === session.user.id)
+    .reduce((total, r) => total + r.hours, 0);
   const pendingHours = pendingRequests
     .filter((r) => r.userId === session.user.id)
     .reduce((total, r) => total + r.hours, 0);

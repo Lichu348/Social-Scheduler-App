@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ChevronLeft, ChevronRight, Plus, Calendar } from "lucide-react";
 import { cn, formatTime, getWeekDates, isSameDay } from "@/lib/utils";
 import { ShiftDetailDialog } from "./shift-detail-dialog";
 import { QuickAddShiftDialog } from "./quick-add-shift-dialog";
@@ -135,6 +136,30 @@ export function ScheduleGrid({
     date: Date;
     userId: string | null;
   } | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle date picker selection
+  const handleDateSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedDate = new Date(e.target.value);
+    if (!isNaN(selectedDate.getTime())) {
+      setCurrentDate(selectedDate);
+    }
+    setShowDatePicker(false);
+  };
+
+  // Close date picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dateInputRef.current && !dateInputRef.current.contains(event.target as Node)) {
+        setShowDatePicker(false);
+      }
+    };
+    if (showDatePicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showDatePicker]);
 
   const weekDates = getWeekDates(currentDate);
   const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -173,7 +198,11 @@ export function ScheduleGrid({
 
   const isUserAvailable = (userId: string, date: Date) => {
     const dayOfWeek = date.getDay();
-    const dateStr = date.toISOString().split("T")[0];
+    // Use local date string to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
 
     // Check for date-specific availability first
     const specificAvail = availability.find(
@@ -192,7 +221,12 @@ export function ScheduleGrid({
   };
 
   const getUserHolidayForDate = (userId: string, date: Date): Holiday | null => {
-    const dateStr = date.toISOString().split("T")[0];
+    // Use local date string to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
     return holidays.find((h) => {
       if (h.userId !== userId) return false;
       const start = h.startDate.split("T")[0];
@@ -293,6 +327,33 @@ export function ScheduleGrid({
             <Button variant="outline" size="icon" onClick={() => navigateWeek("next")}>
               <ChevronRight className="h-4 w-4" />
             </Button>
+            {/* Calendar Date Picker */}
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setShowDatePicker(!showDatePicker);
+                  // Focus the input when opening
+                  setTimeout(() => dateInputRef.current?.showPicker?.(), 0);
+                }}
+                title="Jump to date"
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+              {showDatePicker && (
+                <div className="absolute top-full left-0 mt-1 z-50">
+                  <Input
+                    ref={dateInputRef}
+                    type="date"
+                    value={currentDate.toISOString().split("T")[0]}
+                    onChange={handleDateSelect}
+                    className="w-auto"
+                    autoFocus
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
             Today
