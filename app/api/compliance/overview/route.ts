@@ -66,6 +66,14 @@ export async function GET() {
             signedAt: true,
             certificateNumber: true,
             status: true,
+            // Review fields
+            rating: true,
+            managerNotes: true,
+            employeeComments: true,
+            goals: true,
+            managerSignature: true,
+            managerSignedAt: true,
+            reviewedById: true,
           },
         },
       },
@@ -77,7 +85,7 @@ export async function GET() {
       const compliance: Record<
         string,
         {
-          status: "completed" | "expired" | "pending" | "not_required";
+          status: "completed" | "expired" | "pending" | "pending_ack" | "not_required";
           record: typeof user.complianceRecords[0] | null;
         }
       > = {};
@@ -93,6 +101,17 @@ export async function GET() {
 
         if (!isRequired) {
           compliance[item.id] = { status: "not_required", record: null };
+        } else if (item.type === "REVIEW") {
+          // Reviews have a different workflow
+          if (!record || !record.managerSignature) {
+            compliance[item.id] = { status: "pending", record: record || null };
+          } else if (new Date(record.expiryDate) < now) {
+            compliance[item.id] = { status: "expired", record };
+          } else if (!record.signature) {
+            compliance[item.id] = { status: "pending_ack", record }; // Awaiting employee acknowledgment
+          } else {
+            compliance[item.id] = { status: "completed", record };
+          }
         } else if (!record || !record.signature) {
           compliance[item.id] = { status: "pending", record: null };
         } else if (new Date(record.expiryDate) < now) {
@@ -117,9 +136,11 @@ export async function GET() {
       totalUsers: users.length,
       policies: items.filter((i) => i.type === "POLICY").length,
       qualifications: items.filter((i) => i.type === "QUALIFICATION").length,
+      reviews: items.filter((i) => i.type === "REVIEW").length,
       expiringSoon: 0, // Count records expiring in next 30 days
       expired: 0,
       pending: 0,
+      pendingAck: 0, // Reviews awaiting employee acknowledgment
     };
 
     for (const user of matrix) {
@@ -127,6 +148,7 @@ export async function GET() {
         const c = user.compliance[itemId];
         if (c.status === "expired") stats.expired++;
         if (c.status === "pending") stats.pending++;
+        if (c.status === "pending_ack") stats.pendingAck++;
         if (
           c.record &&
           c.status === "completed" &&

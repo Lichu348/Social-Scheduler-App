@@ -1,9 +1,5 @@
 import { auth } from "@/lib/auth";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MaintenanceOverview } from "@/components/maintenance-overview";
-import { MaintenanceHistory } from "@/components/maintenance-history";
-import { MaintenanceCheckTypesManager } from "@/components/maintenance-check-types-manager";
+import { MaintenancePageContent } from "@/components/maintenance-page-content";
 
 interface ExtendedUser {
   id: string;
@@ -34,47 +30,12 @@ export default async function MaintenancePage() {
         </p>
       </div>
 
-      <Tabs defaultValue="today">
-        <TabsList className="mb-6">
-          <TabsTrigger value="today">Today&apos;s Checks</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-          {isAdmin && <TabsTrigger value="check-types">Check Types</TabsTrigger>}
-        </TabsList>
-
-        <TabsContent value="today">
-          <MaintenanceOverview userName={user.name || "User"} />
-        </TabsContent>
-
-        <TabsContent value="history">
-          <Card>
-            <CardHeader>
-              <CardTitle>Maintenance History</CardTitle>
-              <CardDescription>
-                View past maintenance logs and filter by location, date, or status
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <MaintenanceHistory />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {isAdmin && (
-          <TabsContent value="check-types">
-            <Card>
-              <CardHeader>
-                <CardTitle>Check Types</CardTitle>
-                <CardDescription>
-                  Configure maintenance check types and their frequencies
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <MaintenanceCheckTypesManager />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-      </Tabs>
+      <MaintenancePageContent
+        userName={user.name || "User"}
+        userRole={user.role}
+        isAdmin={isAdmin}
+        isManager={isManager}
+      />
     </div>
   );
 }

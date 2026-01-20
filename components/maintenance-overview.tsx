@@ -82,28 +82,37 @@ interface OverviewData {
 
 interface MaintenanceOverviewProps {
   userName: string;
+  selectedLocationId?: string;
+  showLocationFilter?: boolean;
 }
 
-export function MaintenanceOverview({ userName }: MaintenanceOverviewProps) {
+export function MaintenanceOverview({
+  userName,
+  selectedLocationId = "",
+  showLocationFilter = true,
+}: MaintenanceOverviewProps) {
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
-  const [selectedLocationId, setSelectedLocationId] = useState<string>("");
+  const [internalLocationId, setInternalLocationId] = useState<string>("");
   const [loggingCheck, setLoggingCheck] = useState<{
     checkType: CheckType;
     location: Location;
   } | null>(null);
 
+  // Use prop if provided, otherwise use internal state
+  const effectiveLocationId = selectedLocationId !== undefined ? selectedLocationId : internalLocationId;
+
   useEffect(() => {
     fetchOverview();
-  }, [selectedLocationId]);
+  }, [effectiveLocationId]);
 
   const fetchOverview = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedLocationId) {
-        params.append("locationId", selectedLocationId);
+      if (effectiveLocationId) {
+        params.append("locationId", effectiveLocationId);
       }
       const res = await fetch(`/api/maintenance/overview?${params.toString()}`);
       if (res.ok) {
@@ -243,37 +252,39 @@ export function MaintenanceOverview({ userName }: MaintenanceOverviewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Location Filter */}
-      <Card>
-        <CardContent className="py-4">
-          <div className="flex items-center gap-4">
-            <MapPin className="h-5 w-5 text-muted-foreground" />
-            <div className="flex-1">
-              <Label className="text-sm text-muted-foreground">Filter by Location</Label>
-              <div className="relative mt-1">
-                <select
-                  value={selectedLocationId}
-                  onChange={(e) => setSelectedLocationId(e.target.value)}
-                  className="flex h-9 w-full max-w-xs appearance-none rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <option value="">All Locations ({data.locations.length})</option>
-                  {data.locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 opacity-50 pointer-events-none" />
+      {/* Location Filter - only show if showLocationFilter is true */}
+      {showLocationFilter && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4">
+              <MapPin className="h-5 w-5 text-muted-foreground" />
+              <div className="flex-1">
+                <Label className="text-sm text-muted-foreground">Filter by Location</Label>
+                <div className="relative mt-1">
+                  <select
+                    value={internalLocationId}
+                    onChange={(e) => setInternalLocationId(e.target.value)}
+                    className="flex h-9 w-full max-w-xs appearance-none rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">All Locations ({data.locations.length})</option>
+                    {data.locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 opacity-50 pointer-events-none" />
+                </div>
               </div>
+              {!data.canEdit && (
+                <Badge variant="outline" className="text-muted-foreground">
+                  View Only
+                </Badge>
+              )}
             </div>
-            {!data.canEdit && (
-              <Badge variant="outline" className="text-muted-foreground">
-                View Only
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

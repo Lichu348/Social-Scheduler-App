@@ -50,7 +50,11 @@ interface Location {
   name: string;
 }
 
-export function MaintenanceHistory() {
+interface MaintenanceHistoryProps {
+  selectedLocationId?: string;
+}
+
+export function MaintenanceHistory({ selectedLocationId = "" }: MaintenanceHistoryProps) {
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -68,13 +72,16 @@ export function MaintenanceHistory() {
   const [page, setPage] = useState(0);
   const limit = 20;
 
+  // Effective location filter - use prop if set, otherwise use internal filter
+  const effectiveLocationFilter = selectedLocationId || locationFilter;
+
   useEffect(() => {
     fetchFilters();
   }, []);
 
   useEffect(() => {
     fetchLogs();
-  }, [locationFilter, checkTypeFilter, statusFilter, startDate, endDate, page]);
+  }, [effectiveLocationFilter, checkTypeFilter, statusFilter, startDate, endDate, page, selectedLocationId]);
 
   const fetchFilters = async () => {
     try {
@@ -93,7 +100,7 @@ export function MaintenanceHistory() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (locationFilter) params.append("locationId", locationFilter);
+      if (effectiveLocationFilter) params.append("locationId", effectiveLocationFilter);
       if (checkTypeFilter) params.append("checkTypeId", checkTypeFilter);
       if (statusFilter) params.append("status", statusFilter);
       if (startDate) params.append("startDate", startDate);
@@ -115,7 +122,9 @@ export function MaintenanceHistory() {
   };
 
   const clearFilters = () => {
-    setLocationFilter("");
+    if (!selectedLocationId) {
+      setLocationFilter("");
+    }
     setCheckTypeFilter("");
     setStatusFilter("");
     setStartDate("");
@@ -123,7 +132,8 @@ export function MaintenanceHistory() {
     setPage(0);
   };
 
-  const hasFilters = locationFilter || checkTypeFilter || statusFilter || startDate || endDate;
+  // Don't count the location filter if it's being controlled externally
+  const hasFilters = (!selectedLocationId && locationFilter) || checkTypeFilter || statusFilter || startDate || endDate;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -161,24 +171,27 @@ export function MaintenanceHistory() {
           <span className="text-sm font-medium">Filters</span>
         </div>
 
-        <div className="flex-1 min-w-[150px]">
-          <Label className="text-xs text-muted-foreground">Location</Label>
-          <div className="relative">
-            <select
-              value={locationFilter}
-              onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }}
-              className="flex h-9 w-full appearance-none rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <option value="">All locations</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 opacity-50 pointer-events-none" />
+        {/* Only show location filter if not controlled externally */}
+        {!selectedLocationId && (
+          <div className="flex-1 min-w-[150px]">
+            <Label className="text-xs text-muted-foreground">Location</Label>
+            <div className="relative">
+              <select
+                value={locationFilter}
+                onChange={(e) => { setLocationFilter(e.target.value); setPage(0); }}
+                className="flex h-9 w-full appearance-none rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">All locations</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 opacity-50 pointer-events-none" />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex-1 min-w-[150px]">
           <Label className="text-xs text-muted-foreground">Check Type</Label>

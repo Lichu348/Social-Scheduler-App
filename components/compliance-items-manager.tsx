@@ -18,13 +18,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, FileText, Award, X } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Award, X, ClipboardCheck } from "lucide-react";
 
 interface ComplianceItem {
   id: string;
   name: string;
   description: string | null;
-  type: "POLICY" | "QUALIFICATION";
+  type: "POLICY" | "QUALIFICATION" | "REVIEW";
   validityMonths: number;
   isRequired: boolean;
   requiredForRoles: string[];
@@ -52,7 +52,7 @@ export function ComplianceItemsManager() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    type: "POLICY" as "POLICY" | "QUALIFICATION",
+    type: "POLICY" as "POLICY" | "QUALIFICATION" | "REVIEW",
     validityMonths: 12,
     isRequired: false,
     requiredForRoles: [] as string[],
@@ -173,6 +173,7 @@ export function ComplianceItemsManager() {
 
   const policies = items.filter((i) => i.type === "POLICY");
   const qualifications = items.filter((i) => i.type === "QUALIFICATION");
+  const reviews = items.filter((i) => i.type === "REVIEW");
 
   if (loading) {
     return <div className="text-center py-4 text-muted-foreground">Loading...</div>;
@@ -190,6 +191,10 @@ export function ComplianceItemsManager() {
             <TabsTrigger value="qualifications">
               <Award className="h-4 w-4 mr-2" />
               Qualifications ({qualifications.length})
+            </TabsTrigger>
+            <TabsTrigger value="reviews">
+              <ClipboardCheck className="h-4 w-4 mr-2" />
+              Reviews ({reviews.length})
             </TabsTrigger>
           </TabsList>
           <Button
@@ -226,6 +231,18 @@ export function ComplianceItemsManager() {
             ))
           )}
         </TabsContent>
+
+        <TabsContent value="reviews" className="space-y-2">
+          {reviews.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">
+              No performance reviews yet. Add one to get started.
+            </p>
+          ) : (
+            reviews.map((item) => (
+              <ItemRow key={item.id} item={item} onEdit={handleEdit} onDelete={handleDelete} />
+            ))
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* Add/Edit Dialog */}
@@ -249,7 +266,7 @@ export function ComplianceItemsManager() {
                 <select
                   value={formData.type}
                   onChange={(e) =>
-                    setFormData({ ...formData, type: e.target.value as "POLICY" | "QUALIFICATION" })
+                    setFormData({ ...formData, type: e.target.value as "POLICY" | "QUALIFICATION" | "REVIEW" })
                   }
                   disabled={!!editingItem}
                   className={cn(
@@ -258,6 +275,7 @@ export function ComplianceItemsManager() {
                 >
                   <option value="POLICY">Policy (document to acknowledge)</option>
                   <option value="QUALIFICATION">Qualification (certification to track)</option>
+                  <option value="REVIEW">Performance Review (manager-led review)</option>
                 </select>
               </div>
             </div>
@@ -271,7 +289,9 @@ export function ComplianceItemsManager() {
                 placeholder={
                   formData.type === "POLICY"
                     ? "e.g., Health & Safety Policy"
-                    : "e.g., First Aid Certificate"
+                    : formData.type === "QUALIFICATION"
+                    ? "e.g., First Aid Certificate"
+                    : "e.g., Annual Performance Review"
                 }
               />
             </div>
@@ -391,13 +411,20 @@ function ItemRow({
   onEdit: (item: ComplianceItem) => void;
   onDelete: (id: string) => void;
 }) {
+  const getIcon = () => {
+    switch (item.type) {
+      case "POLICY":
+        return <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />;
+      case "QUALIFICATION":
+        return <Award className="h-5 w-5 text-purple-600 flex-shrink-0" />;
+      case "REVIEW":
+        return <ClipboardCheck className="h-5 w-5 text-green-600 flex-shrink-0" />;
+    }
+  };
+
   return (
     <div className="flex items-center gap-3 p-3 border rounded-md">
-      {item.type === "POLICY" ? (
-        <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />
-      ) : (
-        <Award className="h-5 w-5 text-purple-600 flex-shrink-0" />
-      )}
+      {getIcon()}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-medium">{item.name}</span>

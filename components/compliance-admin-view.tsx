@@ -1,8 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -12,6 +17,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   CheckCircle,
   XCircle,
   AlertTriangle,
@@ -20,6 +33,8 @@ import {
   Award,
   Users,
   Clock,
+  ClipboardCheck,
+  Star,
 } from "lucide-react";
 
 interface ComplianceItem {
@@ -30,6 +45,19 @@ interface ComplianceItem {
   isRequired: boolean;
 }
 
+interface ComplianceRecord {
+  id: string;
+  expiryDate: string;
+  signedAt: string | null;
+  signature: string | null;
+  rating: number | null;
+  managerNotes: string | null;
+  employeeComments: string | null;
+  goals: string | null;
+  managerSignature: string | null;
+  managerSignedAt: string | null;
+}
+
 interface UserCompliance {
   id: string;
   name: string;
@@ -38,11 +66,8 @@ interface UserCompliance {
   compliance: Record<
     string,
     {
-      status: "completed" | "expired" | "pending" | "not_required";
-      record: {
-        expiryDate: string;
-        signedAt: string;
-      } | null;
+      status: "completed" | "expired" | "pending" | "pending_ack" | "not_required";
+      record: ComplianceRecord | null;
     }
   >;
 }
@@ -52,9 +77,11 @@ interface OverviewStats {
   totalUsers: number;
   policies: number;
   qualifications: number;
+  reviews: number;
   expiringSoon: number;
   expired: number;
   pending: number;
+  pendingAck: number;
 }
 
 const staffRoleLabels: Record<string, string> = {
@@ -65,10 +92,23 @@ const staffRoleLabels: Record<string, string> = {
 };
 
 export function ComplianceAdminView() {
+  const router = useRouter();
   const [items, setItems] = useState<ComplianceItem[]>([]);
   const [users, setUsers] = useState<UserCompliance[]>([]);
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Review dialog state
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserCompliance | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ComplianceItem | null>(null);
+  const [reviewData, setReviewData] = useState({
+    rating: 3,
+    managerNotes: "",
+    goals: "",
+    managerSignature: "",
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchOverview();
@@ -90,7 +130,51 @@ export function ComplianceAdminView() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const handleConductReview = (user: UserCompliance, item: ComplianceItem) => {
+    setSelectedUser(user);
+    setSelectedItem(item);
+    const existingRecord = user.compliance[item.id]?.record;
+    setReviewData({
+      rating: existingRecord?.rating || 3,
+      managerNotes: existingRecord?.managerNotes || "",
+      goals: existingRecord?.goals || "",
+      managerSignature: "",
+    });
+    setShowReviewDialog(true);
+  };
+
+  const handleSaveReview = async () => {
+    if (!selectedUser || !selectedItem || !reviewData.managerSignature.trim()) return;
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/compliance/${selectedItem.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedUser.id,
+          rating: reviewData.rating,
+          managerNotes: reviewData.managerNotes || null,
+          goals: reviewData.goals || null,
+          managerSignature: reviewData.managerSignature.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        setShowReviewDialog(false);
+        setSelectedUser(null);
+        setSelectedItem(null);
+        fetchOverview();
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Failed to save review:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getStatusIcon = (status: string, itemType: string) => {
     switch (status) {
       case "completed":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
@@ -98,6 +182,8 @@ export function ComplianceAdminView() {
         return <AlertTriangle className="h-4 w-4 text-red-600" />;
       case "pending":
         return <XCircle className="h-4 w-4 text-amber-600" />;
+      case "pending_ack":
+        return <Clock className="h-4 w-4 text-blue-600" />; // Awaiting employee acknowledgment
       default:
         return <Minus className="h-4 w-4 text-gray-300" />;
     }
@@ -187,6 +273,8 @@ export function ComplianceAdminView() {
                         <div className="flex flex-col items-center gap-1">
                           {item.type === "POLICY" ? (
                             <FileText className="h-4 w-4" />
+                          ) : item.type === "REVIEW" ? (
+                            <ClipboardCheck className="h-4 w-4" />
                           ) : (
                             <Award className="h-4 w-4" />
                           )}
@@ -209,10 +297,17 @@ export function ComplianceAdminView() {
                       </TableCell>
                       {items.map((item) => {
                         const compliance = user.compliance[item.id];
+                        const isReview = item.type === "REVIEW";
+                        const canConduct = isReview && compliance?.status !== "not_required";
                         return (
-                          <TableCell key={item.id} className="text-center">
+                          <TableCell
+                            key={item.id}
+                            className={`text-center ${canConduct ? "cursor-pointer hover:bg-muted/50" : ""}`}
+                            onClick={() => canConduct && handleConductReview(user, item)}
+                            title={canConduct ? "Click to conduct review" : undefined}
+                          >
                             <div className="flex justify-center">
-                              {getStatusIcon(compliance?.status || "not_required")}
+                              {getStatusIcon(compliance?.status || "not_required", item.type)}
                             </div>
                           </TableCell>
                         );
@@ -239,6 +334,10 @@ export function ComplianceAdminView() {
               <span>Pending</span>
             </div>
             <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <span>Awaiting Acknowledgment</span>
+            </div>
+            <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-red-600" />
               <span>Expired</span>
             </div>
@@ -249,6 +348,105 @@ export function ComplianceAdminView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Conduct Review Dialog */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Conduct Performance Review</DialogTitle>
+            <DialogDescription>
+              Complete the performance review for {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="font-medium">{selectedItem?.name}</p>
+              <p className="text-sm text-muted-foreground">
+                Employee: {selectedUser?.name}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Performance Rating</Label>
+              <div className="flex items-center gap-2">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    key={rating}
+                    type="button"
+                    onClick={() => setReviewData({ ...reviewData, rating })}
+                    className="p-1 hover:scale-110 transition-transform"
+                  >
+                    <Star
+                      className={`h-8 w-8 ${
+                        rating <= reviewData.rating
+                          ? "text-yellow-500 fill-yellow-500"
+                          : "text-gray-300"
+                      }`}
+                    />
+                  </button>
+                ))}
+                <span className="ml-2 text-sm text-muted-foreground">
+                  {reviewData.rating}/5
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="managerNotes">Manager Notes / Feedback</Label>
+              <Textarea
+                id="managerNotes"
+                value={reviewData.managerNotes}
+                onChange={(e) =>
+                  setReviewData({ ...reviewData, managerNotes: e.target.value })
+                }
+                placeholder="Performance feedback, areas of strength, areas for improvement..."
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="goals">Goals for Next Review Period</Label>
+              <Textarea
+                id="goals"
+                value={reviewData.goals}
+                onChange={(e) =>
+                  setReviewData({ ...reviewData, goals: e.target.value })
+                }
+                placeholder="Specific, measurable goals for the employee..."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="managerSignature">Manager Signature</Label>
+              <Input
+                id="managerSignature"
+                value={reviewData.managerSignature}
+                onChange={(e) =>
+                  setReviewData({ ...reviewData, managerSignature: e.target.value })
+                }
+                placeholder="Type your full name"
+              />
+              <p className="text-xs text-muted-foreground">
+                This digital signature will be recorded with the current date and time.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReviewDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveReview}
+              disabled={saving || !reviewData.managerSignature.trim()}
+            >
+              {saving ? "Saving..." : "Complete Review"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

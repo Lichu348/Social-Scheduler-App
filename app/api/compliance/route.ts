@@ -43,6 +43,14 @@ export async function GET(req: Request) {
             signedAt: true,
             certificateNumber: true,
             status: true,
+            // Review fields
+            rating: true,
+            managerNotes: true,
+            employeeComments: true,
+            goals: true,
+            managerSignature: true,
+            managerSignedAt: true,
+            reviewedById: true,
           },
         },
         _count: {
@@ -58,11 +66,19 @@ export async function GET(req: Request) {
     const now = new Date();
     const processedItems = items.map((item) => {
       const userRecord = item.userRecords[0] || null;
-      let complianceStatus: "not_completed" | "completed" | "expired" = "not_completed";
+      let complianceStatus: "not_completed" | "completed" | "expired" | "pending_acknowledgment" = "not_completed";
 
       if (userRecord) {
         if (new Date(userRecord.expiryDate) < now) {
           complianceStatus = "expired";
+        } else if (item.type === "REVIEW") {
+          // Reviews require both manager and employee signatures
+          if (userRecord.managerSignature && userRecord.signature) {
+            complianceStatus = "completed";
+          } else if (userRecord.managerSignature) {
+            complianceStatus = "pending_acknowledgment"; // Manager completed, awaiting employee
+          }
+          // If no manager signature, it stays "not_completed"
         } else if (userRecord.signature) {
           complianceStatus = "completed";
         }
@@ -134,17 +150,9 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!["POLICY", "QUALIFICATION"].includes(type)) {
+    if (!["POLICY", "QUALIFICATION", "REVIEW"].includes(type)) {
       return NextResponse.json(
-        { error: "Type must be POLICY or QUALIFICATION" },
-        { status: 400 }
-      );
-    }
-
-    // For POLICY type, fileUrl and fileName are required
-    if (type === "POLICY" && (!fileUrl || !fileName)) {
-      return NextResponse.json(
-        { error: "File URL and name are required for policies" },
+        { error: "Type must be POLICY, QUALIFICATION, or REVIEW" },
         { status: 400 }
       );
     }
