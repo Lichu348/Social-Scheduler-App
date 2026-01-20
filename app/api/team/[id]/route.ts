@@ -18,7 +18,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const { role, staffRole, holidayBalance, phone, primaryLocationId, paymentType, monthlySalary } = await req.json();
+    const { name, email, role, staffRole, holidayBalance, phone, primaryLocationId, paymentType, monthlySalary } = await req.json();
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -28,9 +28,21 @@ export async function PATCH(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // If email is being changed, check it's not already in use
+    if (email !== undefined && email !== user.email) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+      });
+      if (existingUser) {
+        return NextResponse.json({ error: "Email already in use" }, { status: 400 });
+      }
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id },
       data: {
+        name: name !== undefined ? name : undefined,
+        email: email !== undefined ? email : undefined,
         role: role !== undefined ? role : undefined,
         staffRole: staffRole !== undefined ? staffRole : undefined,
         holidayBalance: holidayBalance !== undefined ? holidayBalance : undefined,

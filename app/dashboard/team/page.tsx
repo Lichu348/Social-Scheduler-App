@@ -10,6 +10,7 @@ import { StaffLocationsDialog } from "@/components/staff-locations-dialog";
 import { UserRatesDialog } from "@/components/user-rates-dialog";
 import { MonthlySalaryEditor } from "@/components/monthly-salary-editor";
 import { PaymentTypeSelector } from "@/components/payment-type-selector";
+import { EditUserDialog } from "@/components/edit-user-dialog";
 import { UserPlus } from "lucide-react";
 
 async function getTeamData(organizationId: string) {
@@ -231,6 +232,13 @@ export default async function TeamPage() {
                       userName={user.name}
                       assignedLocationIds={user.locationAccess.map((la) => la.location.id)}
                       allLocations={locations}
+                    />
+                  )}
+                  {isAdmin && (
+                    <EditUserDialog
+                      userId={user.id}
+                      currentName={user.name}
+                      currentEmail={user.email}
                     />
                   )}
                   {isManager && user.id !== session.user.id && (
