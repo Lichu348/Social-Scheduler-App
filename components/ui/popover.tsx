@@ -33,7 +33,7 @@ export function Popover({ children, open: controlledOpen, onOpenChange }: Popove
 
   return (
     <PopoverContext.Provider value={{ open, setOpen }}>
-      <div className="relative inline-block">{children}</div>
+      <div className="relative inline-block overflow-visible">{children}</div>
     </PopoverContext.Provider>
   );
 }
