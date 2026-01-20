@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   CheckCircle2,
@@ -13,6 +14,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   AlertTriangle,
+  MapPin,
 } from "lucide-react";
 import { MaintenanceCheckForm } from "@/components/maintenance-check-form";
 
@@ -74,6 +76,8 @@ interface OverviewData {
     location: { name: string };
     signedBy: { name: string };
   }>;
+  canEdit: boolean;
+  userRole: string;
 }
 
 interface MaintenanceOverviewProps {
@@ -84,6 +88,7 @@ export function MaintenanceOverview({ userName }: MaintenanceOverviewProps) {
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set());
+  const [selectedLocationId, setSelectedLocationId] = useState<string>("");
   const [loggingCheck, setLoggingCheck] = useState<{
     checkType: CheckType;
     location: Location;
@@ -91,11 +96,16 @@ export function MaintenanceOverview({ userName }: MaintenanceOverviewProps) {
 
   useEffect(() => {
     fetchOverview();
-  }, []);
+  }, [selectedLocationId]);
 
   const fetchOverview = async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/maintenance/overview");
+      const params = new URLSearchParams();
+      if (selectedLocationId) {
+        params.append("locationId", selectedLocationId);
+      }
+      const res = await fetch(`/api/maintenance/overview?${params.toString()}`);
       if (res.ok) {
         const overview = await res.json();
         setData(overview);
@@ -189,7 +199,7 @@ export function MaintenanceOverview({ userName }: MaintenanceOverviewProps) {
     }
   };
 
-  if (loading) {
+  if (loading && !data) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   }
 
@@ -220,9 +230,11 @@ export function MaintenanceOverview({ userName }: MaintenanceOverviewProps) {
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
           <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="font-medium">No locations configured</p>
+          <p className="font-medium">No locations available</p>
           <p className="text-sm mt-1">
-            Add locations before logging maintenance checks
+            {data.userRole === "EMPLOYEE"
+              ? "You are not assigned to any locations"
+              : "Add locations before logging maintenance checks"}
           </p>
         </CardContent>
       </Card>
@@ -231,6 +243,38 @@ export function MaintenanceOverview({ userName }: MaintenanceOverviewProps) {
 
   return (
     <div className="space-y-6">
+      {/* Location Filter */}
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex items-center gap-4">
+            <MapPin className="h-5 w-5 text-muted-foreground" />
+            <div className="flex-1">
+              <Label className="text-sm text-muted-foreground">Filter by Location</Label>
+              <div className="relative mt-1">
+                <select
+                  value={selectedLocationId}
+                  onChange={(e) => setSelectedLocationId(e.target.value)}
+                  className="flex h-9 w-full max-w-xs appearance-none rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">All Locations ({data.locations.length})</option>
+                  {data.locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 opacity-50 pointer-events-none" />
+              </div>
+            </div>
+            {!data.canEdit && (
+              <Badge variant="outline" className="text-muted-foreground">
+                View Only
+              </Badge>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
@@ -295,115 +339,123 @@ export function MaintenanceOverview({ userName }: MaintenanceOverviewProps) {
           <CardTitle>Checks by Location</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y">
-            {data.locationCheckStatus.map((loc) => {
-              const isExpanded = expandedLocations.has(loc.locationId);
-              const completedCount = loc.checks.filter((c) => c.status === "completed").length;
-              const dueCount = loc.checks.filter((c) => c.status === "due" || c.status === "overdue").length;
-              const hasOverdue = loc.checks.some((c) => c.status === "overdue");
+          {loading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+          ) : data.locationCheckStatus.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No checks found for the selected location
+            </div>
+          ) : (
+            <div className="divide-y">
+              {data.locationCheckStatus.map((loc) => {
+                const isExpanded = expandedLocations.has(loc.locationId);
+                const completedCount = loc.checks.filter((c) => c.status === "completed").length;
+                const dueCount = loc.checks.filter((c) => c.status === "due" || c.status === "overdue").length;
+                const hasOverdue = loc.checks.some((c) => c.status === "overdue");
 
-              return (
-                <div key={loc.locationId}>
-                  <button
-                    onClick={() => toggleLocation(loc.locationId)}
-                    className={cn(
-                      "w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors text-left",
-                      hasOverdue && "bg-red-50"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                return (
+                  <div key={loc.locationId}>
+                    <button
+                      onClick={() => toggleLocation(loc.locationId)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors text-left",
+                        hasOverdue && "bg-red-50"
                       )}
-                      <span className="font-medium">{loc.locationName}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {hasOverdue && (
-                        <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
-                          {loc.checks.filter((c) => c.status === "overdue").length} Overdue
-                        </Badge>
-                      )}
-                      <span className="text-sm text-muted-foreground">
-                        {completedCount}/{loc.checks.length} done
-                        {dueCount > 0 && `, ${dueCount} due`}
-                      </span>
-                    </div>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="px-4 pb-4 bg-muted/20">
-                      <div className="space-y-2 pt-2">
-                        {loc.checks.map((check) => (
-                          <div
-                            key={check.checkTypeId}
-                            className={cn(
-                              "flex items-center justify-between p-3 rounded-lg bg-background border",
-                              check.status === "overdue" && "border-red-200 bg-red-50/50"
-                            )}
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{check.checkTypeName}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  (every {check.frequencyDays === 1 ? "day" : `${check.frequencyDays} days`})
-                                </span>
-                              </div>
-                              {check.todayLog && (
-                                <div className="mt-1 text-sm text-muted-foreground">
-                                  Signed by {check.todayLog.signedBy.name} at{" "}
-                                  {new Date(check.todayLog.signedAt).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                  {check.todayLog.notes && (
-                                    <span className="ml-2">- {check.todayLog.notes}</span>
-                                  )}
-                                </div>
-                              )}
-                              {!check.todayLog && check.lastLog && (
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  Last checked: {new Date(check.lastLog.checkDate).toLocaleDateString()}
-                                  {check.daysSinceLastCheck !== null && (
-                                    <span> ({check.daysSinceLastCheck} days ago)</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {check.todayLog && getLogStatusBadge(check.todayLog.status)}
-                              {getStatusBadge(check.status)}
-                              {check.status !== "completed" && check.status !== "not_due" && (
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    setLoggingCheck({
-                                      checkType: {
-                                        id: check.checkTypeId,
-                                        name: check.checkTypeName,
-                                        frequencyDays: check.frequencyDays,
-                                      },
-                                      location: {
-                                        id: loc.locationId,
-                                        name: loc.locationName,
-                                      },
-                                    })
-                                  }
-                                >
-                                  Log Check
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                    >
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <span className="font-medium">{loc.locationName}</span>
                       </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                      <div className="flex items-center gap-3">
+                        {hasOverdue && (
+                          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+                            {loc.checks.filter((c) => c.status === "overdue").length} Overdue
+                          </Badge>
+                        )}
+                        <span className="text-sm text-muted-foreground">
+                          {completedCount}/{loc.checks.length} done
+                          {dueCount > 0 && `, ${dueCount} due`}
+                        </span>
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="px-4 pb-4 bg-muted/20">
+                        <div className="space-y-2 pt-2">
+                          {loc.checks.map((check) => (
+                            <div
+                              key={check.checkTypeId}
+                              className={cn(
+                                "flex items-center justify-between p-3 rounded-lg bg-background border",
+                                check.status === "overdue" && "border-red-200 bg-red-50/50"
+                              )}
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{check.checkTypeName}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    (every {check.frequencyDays === 1 ? "day" : `${check.frequencyDays} days`})
+                                  </span>
+                                </div>
+                                {check.todayLog && (
+                                  <div className="mt-1 text-sm text-muted-foreground">
+                                    Signed by {check.todayLog.signedBy.name} at{" "}
+                                    {new Date(check.todayLog.signedAt).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                    {check.todayLog.notes && (
+                                      <span className="ml-2">- {check.todayLog.notes}</span>
+                                    )}
+                                  </div>
+                                )}
+                                {!check.todayLog && check.lastLog && (
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    Last checked: {new Date(check.lastLog.checkDate).toLocaleDateString()}
+                                    {check.daysSinceLastCheck !== null && (
+                                      <span> ({check.daysSinceLastCheck} days ago)</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {check.todayLog && getLogStatusBadge(check.todayLog.status)}
+                                {getStatusBadge(check.status)}
+                                {data.canEdit && check.status !== "completed" && check.status !== "not_due" && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      setLoggingCheck({
+                                        checkType: {
+                                          id: check.checkTypeId,
+                                          name: check.checkTypeName,
+                                          frequencyDays: check.frequencyDays,
+                                        },
+                                        location: {
+                                          id: loc.locationId,
+                                          name: loc.locationName,
+                                        },
+                                      })
+                                    }
+                                  >
+                                    Log Check
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 

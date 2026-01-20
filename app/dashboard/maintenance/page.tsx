@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MaintenanceOverview } from "@/components/maintenance-overview";
@@ -24,17 +23,14 @@ export default async function MaintenancePage() {
   const isAdmin = user.role === "ADMIN";
   const isManager = user.role === "MANAGER" || isAdmin;
 
-  // Redirect non-managers
-  if (!isManager) {
-    redirect("/dashboard");
-  }
-
   return (
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Maintenance</h1>
         <p className="text-muted-foreground mt-1">
-          Track and sign off on safety checks for all locations
+          {isManager
+            ? "Track and sign off on safety checks for all locations"
+            : "View safety check status for your locations"}
         </p>
       </div>
 
@@ -46,7 +42,7 @@ export default async function MaintenancePage() {
         </TabsList>
 
         <TabsContent value="today">
-          <MaintenanceOverview userName={user.name || "Manager"} />
+          <MaintenanceOverview userName={user.name || "User"} />
         </TabsContent>
 
         <TabsContent value="history">

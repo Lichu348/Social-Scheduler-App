@@ -13,7 +13,7 @@ interface ExtendedUser {
 }
 
 // GET maintenance overview - due checks, completed today, issues
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -21,11 +21,8 @@ export async function GET() {
     }
 
     const user = session.user as ExtendedUser;
-
-    // Only managers and admins can view maintenance
-    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const { searchParams } = new URL(req.url);
+    const selectedLocationId = searchParams.get("locationId");
 
     // Get today's date range
     const today = new Date();
@@ -42,19 +39,40 @@ export async function GET() {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
 
-    // Get all active locations
+    // Get locations based on user role
+    // Admin: all locations
+    // Manager/Employee: only their associated locations
+    let userLocationIds: string[] | null = null;
+
+    if (user.role !== "ADMIN") {
+      const userLocations = await prisma.locationStaff.findMany({
+        where: { userId: user.id },
+        select: { locationId: true },
+      });
+      userLocationIds = userLocations.map((l) => l.locationId);
+    }
+
     const locations = await prisma.location.findMany({
       where: {
         organizationId: user.organizationId,
         isActive: true,
+        ...(userLocationIds ? { id: { in: userLocationIds } } : {}),
       },
       orderBy: { name: "asc" },
     });
+
+    // Filter to selected location if specified
+    const filteredLocations = selectedLocationId
+      ? locations.filter((l) => l.id === selectedLocationId)
+      : locations;
+
+    const locationIdsForQuery = filteredLocations.map((l) => l.id);
 
     // Get logs from today
     const todayLogs = await prisma.maintenanceLog.findMany({
       where: {
         organizationId: user.organizationId,
+        locationId: { in: locationIdsForQuery },
         checkDate: {
           gte: today,
           lt: tomorrow,
@@ -79,6 +97,7 @@ export async function GET() {
     const issuesLogs = await prisma.maintenanceLog.findMany({
       where: {
         organizationId: user.organizationId,
+        locationId: { in: locationIdsForQuery },
         checkDate: {
           gte: thirtyDaysAgo,
         },
@@ -105,6 +124,7 @@ export async function GET() {
     const lastLogsPerCheckLocation = await prisma.maintenanceLog.findMany({
       where: {
         organizationId: user.organizationId,
+        locationId: { in: locationIdsForQuery },
       },
       orderBy: { checkDate: "desc" },
       distinct: ["checkTypeId", "locationId"],
@@ -115,7 +135,7 @@ export async function GET() {
     });
 
     // Build check status matrix for each location
-    const locationCheckStatus = locations.map((location) => {
+    const locationCheckStatus = filteredLocations.map((location) => {
       const checks = checkTypes.map((checkType) => {
         // Find today's log for this check/location
         const todayLog = todayLogs.find(
@@ -187,7 +207,7 @@ export async function GET() {
     });
 
     // Calculate summary stats
-    const totalChecks = locations.length * checkTypes.length;
+    const totalChecks = filteredLocations.length * checkTypes.length;
     const completedToday = todayLogs.length;
     const dueToday = locationCheckStatus.reduce(
       (acc, loc) => acc + loc.checks.filter((c) => c.status === "due" || c.status === "overdue").length,
@@ -199,6 +219,9 @@ export async function GET() {
     );
     const openIssues = issuesLogs.length;
 
+    // Determine if user can edit (log checks)
+    const canEdit = user.role === "ADMIN" || user.role === "MANAGER";
+
     return NextResponse.json({
       summary: {
         totalChecks,
@@ -208,9 +231,11 @@ export async function GET() {
         openIssues,
       },
       checkTypes,
-      locations,
+      locations, // All accessible locations for dropdown
       locationCheckStatus,
       recentIssues: issuesLogs,
+      canEdit,
+      userRole: user.role,
     });
   } catch (error) {
     console.error("Get maintenance overview error:", error);
