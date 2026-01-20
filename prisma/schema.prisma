@@ -194,17 +194,18 @@ model Shift {
 }
 
 model ShiftCategory {
-  id             String          @id @default(cuid())
+  id             String             @id @default(cuid())
   name           String
-  hourlyRate     Float
-  color          String          @default("#3b82f6")
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  hourlyRate     Float              // Default rate (can be overridden per user)
+  color          String             @default("#3b82f6")
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
   organizationId String
   shifts         Shift[]
-  organization   Organization    @relation(fields: [organizationId], references: [id])
+  organization   Organization       @relation(fields: [organizationId], references: [id])
   templates      ShiftTemplate[]
+  userRates      UserCategoryRate[]
 
   @@index([organizationId])
 }
@@ -371,6 +372,7 @@ model User {
   organization      Organization        @relation(fields: [organizationId], references: [id])
   primaryLocation   Location?           @relation(fields: [primaryLocationId], references: [id])
   certifications    UserCertification[]
+  categoryRates     UserCategoryRate[]
 
   @@index([email])
   @@index([organizationId])
@@ -397,4 +399,19 @@ model UserCertification {
   @@index([certificationTypeId])
   @@index([expiryDate])
   @@index([userId])
+}
+
+model UserCategoryRate {
+  id         String        @id @default(cuid())
+  hourlyRate Float
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  userId     String
+  categoryId String
+  category   ShiftCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+  @@index([userId])
+  @@index([categoryId])
 }

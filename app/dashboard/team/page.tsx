@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { TeamMemberActions } from "@/components/team-member-actions";
 import { StaffLocationsDialog } from "@/components/staff-locations-dialog";
+import { UserRatesDialog } from "@/components/user-rates-dialog";
 import { UserPlus } from "lucide-react";
 
 async function getTeamData(organizationId: string) {
@@ -195,9 +196,15 @@ export default async function TeamPage() {
                     <p className="text-xs text-muted-foreground">Shifts</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium">{user.holidayBalance}</p>
-                    <p className="text-xs text-muted-foreground">Holiday Days</p>
+                    <p className="text-sm font-medium">{user.holidayBalance}h</p>
+                    <p className="text-xs text-muted-foreground">Holiday</p>
                   </div>
+                  {isAdmin && (
+                    <UserRatesDialog
+                      userId={user.id}
+                      userName={user.name}
+                    />
+                  )}
                   {isAdmin && locations.length > 0 && (
                     <StaffLocationsDialog
                       userId={user.id}
