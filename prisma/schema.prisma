@@ -385,6 +385,8 @@ model UserCertification {
   notes                  String?
   status                 String            @default("ACTIVE")
   lastExpiryNotification DateTime?
+  staffSignature         String?           // Staff counter-signature
+  staffSignedAt          DateTime?         // When staff signed
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
   userId                 String

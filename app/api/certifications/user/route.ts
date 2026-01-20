@@ -33,7 +33,7 @@ export async function GET(req: Request) {
       orderBy: [{ expiryDate: "asc" }, { createdAt: "desc" }],
     });
 
-    // Mark expired certifications
+    // Mark expired certifications and include signature status
     const now = new Date();
     const certsWithStatus = certifications.map((cert) => ({
       ...cert,
@@ -41,6 +41,7 @@ export async function GET(req: Request) {
       isExpiringSoon: cert.expiryDate
         ? cert.expiryDate < new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) && cert.expiryDate >= now
         : false,
+      isSigned: !!cert.staffSignedAt,
     }));
 
     return NextResponse.json(certsWithStatus);
