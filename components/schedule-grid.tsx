@@ -405,7 +405,7 @@ export function ScheduleGrid({
             {/* Day Headers */}
             <thead>
               <tr className="border-b">
-                <th className="w-52 px-4 py-3 text-left bg-gray-50 border-r sticky left-0 z-10">
+                <th className="w-52 min-w-[200px] px-4 py-3 text-left bg-gray-50 border-r sticky left-0 z-10">
                   <span className="text-sm font-medium text-gray-500">Staff</span>
                 </th>
                 {viewMode === "week" ? (
@@ -553,16 +553,16 @@ export function ScheduleGrid({
 
                 return (
                   <tr key={user.id} className={cn("border-b", isCurrentUser && "bg-blue-50/30")}>
-                    <td className="px-4 py-4 border-r sticky left-0 z-10 bg-white">
+                    <td className="px-4 py-4 border-r sticky left-0 z-10 bg-white min-w-[200px]">
                       <div className="flex items-center gap-3">
                         <div className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold",
+                          "w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0",
                           isCurrentUser ? "bg-blue-500" : "bg-gray-400"
                         )}>
                           {user.name.charAt(0).toUpperCase()}
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">
+                        <div>
+                          <p className="font-medium text-sm">
                             {user.name}
                             {isCurrentUser && <span className="text-blue-500 ml-1">(You)</span>}
                           </p>
