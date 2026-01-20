@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { TeamMemberActions } from "@/components/team-member-actions";
 import { StaffLocationsDialog } from "@/components/staff-locations-dialog";
 import { UserRatesDialog } from "@/components/user-rates-dialog";
+import { MonthlySalaryEditor } from "@/components/monthly-salary-editor";
 import { PaymentTypeSelector } from "@/components/payment-type-selector";
 import { UserPlus } from "lucide-react";
 
@@ -22,6 +23,7 @@ async function getTeamData(organizationId: string) {
         role: true,
         staffRole: true,
         paymentType: true,
+        monthlySalary: true,
         phone: true,
         holidayBalance: true,
         createdAt: true,
@@ -210,10 +212,17 @@ export default async function TeamPage() {
                       <p className="text-xs text-muted-foreground mt-1">Pay Type</p>
                     </div>
                   )}
-                  {isAdmin && (
+                  {isAdmin && user.paymentType === "HOURLY" && (
                     <UserRatesDialog
                       userId={user.id}
                       userName={user.name}
+                    />
+                  )}
+                  {isAdmin && user.paymentType === "MONTHLY" && (
+                    <MonthlySalaryEditor
+                      userId={user.id}
+                      userName={user.name}
+                      currentSalary={user.monthlySalary}
                     />
                   )}
                   {isAdmin && locations.length > 0 && (

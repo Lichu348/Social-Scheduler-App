@@ -38,6 +38,20 @@ export async function GET(req: Request) {
     const prevMonthStart = new Date(year, monthNum - 2, 1);
     const prevMonthEnd = new Date(year, monthNum - 1, 0, 23, 59, 59, 999);
 
+    // Fetch all staff in the organization
+    const allStaff = await prisma.user.findMany({
+      where: { organizationId: session.user.organizationId },
+      select: {
+        id: true,
+        name: true,
+        paymentType: true,
+        monthlySalary: true,
+        categoryRates: {
+          select: { categoryId: true, hourlyRate: true },
+        },
+      },
+    });
+
     // Build where clause for time entries
     const timeEntryWhere: {
       status: string;
@@ -63,6 +77,7 @@ export async function GET(req: Request) {
             id: true,
             name: true,
             paymentType: true,
+            monthlySalary: true,
             categoryRates: {
               select: { categoryId: true, hourlyRate: true },
             },
@@ -93,6 +108,7 @@ export async function GET(req: Request) {
           select: {
             id: true,
             paymentType: true,
+            monthlySalary: true,
             categoryRates: {
               select: { categoryId: true, hourlyRate: true },
             },
@@ -138,68 +154,112 @@ export async function GET(req: Request) {
       locationBreakdown: Record<string, { hours: number; grossPay: number }>;
     }> = {};
 
+    // First, add monthly salaried staff with their fixed salary
+    for (const staff of allStaff) {
+      if (staff.paymentType === "MONTHLY" && staff.monthlySalary) {
+        const costs = calculateStaffCost(staff.monthlySalary, "MONTHLY");
+        staffCosts[staff.id] = {
+          userId: staff.id,
+          name: staff.name,
+          paymentType: staff.paymentType,
+          hours: 0, // Will be updated from time entries if any
+          grossPay: costs.grossPay,
+          holidayAccrual: costs.holidayAccrual,
+          employeeNI: costs.employeeNI,
+          employerNI: costs.employerNI,
+          totalCost: costs.totalCost,
+          locationBreakdown: {},
+        };
+      }
+    }
+
+    // Process time entries for hourly staff and hours tracking for monthly staff
     for (const entry of timeEntries) {
       if (!entry.clockOut) continue;
 
       const userId = entry.user.id;
       const hours = calculateHours(entry);
-
-      // Get effective hourly rate
-      const categoryRate = entry.shift?.category?.hourlyRate || 0;
-      const categoryId = entry.shift?.categoryId || "";
-      const hourlyRate = getEffectiveHourlyRate(
-        categoryRate,
-        entry.user.categoryRates,
-        categoryId
-      );
-
-      const grossPay = hours * hourlyRate;
       const locationId = entry.shift?.location?.id || "unassigned";
-      const locationName = entry.shift?.location?.name || "Unassigned";
 
-      if (!staffCosts[userId]) {
-        staffCosts[userId] = {
-          userId,
-          name: entry.user.name,
-          paymentType: entry.user.paymentType,
-          hours: 0,
-          grossPay: 0,
-          holidayAccrual: 0,
-          employeeNI: 0,
-          employerNI: 0,
-          totalCost: 0,
-          locationBreakdown: {},
-        };
+      // For HOURLY staff, calculate pay based on hours worked
+      if (entry.user.paymentType === "HOURLY") {
+        const categoryRate = entry.shift?.category?.hourlyRate || 0;
+        const categoryId = entry.shift?.categoryId || "";
+        const hourlyRate = getEffectiveHourlyRate(
+          categoryRate,
+          entry.user.categoryRates,
+          categoryId
+        );
+
+        const grossPay = hours * hourlyRate;
+
+        if (!staffCosts[userId]) {
+          staffCosts[userId] = {
+            userId,
+            name: entry.user.name,
+            paymentType: entry.user.paymentType,
+            hours: 0,
+            grossPay: 0,
+            holidayAccrual: 0,
+            employeeNI: 0,
+            employerNI: 0,
+            totalCost: 0,
+            locationBreakdown: {},
+          };
+        }
+
+        staffCosts[userId].hours += hours;
+        staffCosts[userId].grossPay += grossPay;
+
+        // Location breakdown
+        if (!staffCosts[userId].locationBreakdown[locationId]) {
+          staffCosts[userId].locationBreakdown[locationId] = { hours: 0, grossPay: 0 };
+        }
+        staffCosts[userId].locationBreakdown[locationId].hours += hours;
+        staffCosts[userId].locationBreakdown[locationId].grossPay += grossPay;
+      } else {
+        // For MONTHLY staff, just track hours worked (pay is fixed)
+        if (staffCosts[userId]) {
+          staffCosts[userId].hours += hours;
+
+          // Location breakdown for hours
+          if (!staffCosts[userId].locationBreakdown[locationId]) {
+            staffCosts[userId].locationBreakdown[locationId] = { hours: 0, grossPay: 0 };
+          }
+          staffCosts[userId].locationBreakdown[locationId].hours += hours;
+        }
       }
-
-      staffCosts[userId].hours += hours;
-      staffCosts[userId].grossPay += grossPay;
-
-      // Location breakdown
-      if (!staffCosts[userId].locationBreakdown[locationId]) {
-        staffCosts[userId].locationBreakdown[locationId] = { hours: 0, grossPay: 0 };
-      }
-      staffCosts[userId].locationBreakdown[locationId].hours += hours;
-      staffCosts[userId].locationBreakdown[locationId].grossPay += grossPay;
     }
 
-    // Calculate NI and holiday accrual for each staff member
+    // Calculate NI and holiday accrual for hourly staff
     for (const staff of Object.values(staffCosts)) {
-      const costs = calculateStaffCost(staff.grossPay, staff.paymentType);
-      staff.grossPay = costs.grossPay;
-      staff.holidayAccrual = costs.holidayAccrual;
-      staff.employeeNI = costs.employeeNI;
-      staff.employerNI = costs.employerNI;
-      staff.totalCost = costs.totalCost;
+      if (staff.paymentType === "HOURLY") {
+        const costs = calculateStaffCost(staff.grossPay, staff.paymentType);
+        staff.grossPay = costs.grossPay;
+        staff.holidayAccrual = costs.holidayAccrual;
+        staff.employeeNI = costs.employeeNI;
+        staff.employerNI = costs.employerNI;
+        staff.totalCost = costs.totalCost;
+      }
       staff.hours = Math.round(staff.hours * 100) / 100;
     }
 
     // Calculate previous month total for variance
     let prevMonthTotal = 0;
-    const prevStaffTotals: Record<string, number> = {};
 
+    // Add monthly staff costs for previous month (same as current if they had salary)
+    for (const staff of allStaff) {
+      if (staff.paymentType === "MONTHLY" && staff.monthlySalary) {
+        const costs = calculateStaffCost(staff.monthlySalary, "MONTHLY");
+        prevMonthTotal += costs.totalCost;
+      }
+    }
+
+    // Add hourly staff costs from previous month time entries
+    const prevHourlyCosts: Record<string, number> = {};
     for (const entry of prevTimeEntries) {
       if (!entry.clockOut) continue;
+      if (entry.user.paymentType !== "HOURLY") continue;
 
       const hours = calculateHours(entry);
       const categoryRate = entry.shift?.category?.hourlyRate || 0;
@@ -211,9 +271,12 @@ export async function GET(req: Request) {
       );
 
       const grossPay = hours * hourlyRate;
-      const costs = calculateStaffCost(grossPay, entry.user.paymentType);
+      prevHourlyCosts[entry.user.id] = (prevHourlyCosts[entry.user.id] || 0) + grossPay;
+    }
 
-      prevStaffTotals[entry.user.id] = (prevStaffTotals[entry.user.id] || 0) + costs.totalCost;
+    // Calculate NI for previous month hourly totals
+    for (const grossPay of Object.values(prevHourlyCosts)) {
+      const costs = calculateStaffCost(grossPay, "HOURLY");
       prevMonthTotal += costs.totalCost;
     }
 

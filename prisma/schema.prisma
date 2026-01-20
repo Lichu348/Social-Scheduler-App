@@ -419,6 +419,7 @@ model User {
   role              String              @default("EMPLOYEE")
   staffRole         String              @default("DESK")
   paymentType       String              @default("HOURLY") // "HOURLY" or "MONTHLY"
+  monthlySalary     Float?              // Monthly salary before tax (for MONTHLY payment type)
   avatarUrl         String?
   phone             String?
   holidayBalance    Int                 @default(200)

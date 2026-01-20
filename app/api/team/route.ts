@@ -19,6 +19,7 @@ export async function GET() {
         role: true,
         staffRole: true,
         paymentType: true,
+        monthlySalary: true,
         phone: true,
         holidayBalance: true,
         createdAt: true,
