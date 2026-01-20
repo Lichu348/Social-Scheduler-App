@@ -168,7 +168,7 @@ export function QuickAssignDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create Shift from Template</DialogTitle>
           <DialogDescription>
@@ -177,8 +177,8 @@ export function QuickAssignDialog({
         </DialogHeader>
 
         {template && targetDate && (
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4 py-4">
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+            <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2">
               {error && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
                   {error}
@@ -244,7 +244,7 @@ export function QuickAssignDialog({
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4">
               <Button
                 type="button"
                 variant="outline"

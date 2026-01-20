@@ -176,7 +176,7 @@ export function CreateTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Edit Template" : "Create Shift Template"}
@@ -187,8 +187,8 @@ export function CreateTemplateDialog({
               : "Create a reusable shift template that you can drag onto the calendar"}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2">
             {error && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
                 {error}
@@ -263,7 +263,7 @@ export function CreateTemplateDialog({
             </div>
           </div>
 
-          <DialogFooter className="flex justify-between">
+          <DialogFooter className="flex justify-between flex-shrink-0 pt-4 border-t mt-4">
             <div>
               {isEditing && (
                 <Button

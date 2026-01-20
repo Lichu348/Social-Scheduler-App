@@ -119,22 +119,22 @@ export function ScheduleCalendar({
                   <div
                     key={i}
                     className={cn(
-                      "min-h-[200px] rounded-lg border p-2",
+                      "min-h-[320px] rounded-lg border p-3",
                       isToday && "bg-primary/5 border-primary"
                     )}
                   >
-                    <div className="text-center mb-2">
-                      <p className="text-xs text-muted-foreground">{dayNames[i]}</p>
+                    <div className="text-center mb-3 pb-2 border-b">
+                      <p className="text-sm font-medium text-muted-foreground">{dayNames[i]}</p>
                       <p
                         className={cn(
-                          "text-lg font-semibold",
+                          "text-2xl font-bold",
                           isToday && "text-primary"
                         )}
                       >
                         {date.getDate()}
                       </p>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {dayShifts.map((shift) => {
                         const isMyShift = shift.assignedTo?.id === currentUserId;
                         const categoryColor = shift.category?.color;
@@ -143,11 +143,11 @@ export function ScheduleCalendar({
                             key={shift.id}
                             onClick={() => setSelectedShift(shift)}
                             className={cn(
-                              "w-full text-left p-2 rounded text-xs transition-colors",
+                              "w-full text-left p-2.5 rounded-md text-sm transition-colors shadow-sm",
                               !categoryColor && isMyShift
                                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                                 : !categoryColor && shift.isOpen
-                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300"
                                 : !categoryColor
                                 ? "bg-muted hover:bg-muted/80"
                                 : ""
@@ -157,8 +157,8 @@ export function ScheduleCalendar({
                               color: "white",
                             } : undefined}
                           >
-                            <p className="font-medium truncate">{shift.title}</p>
-                            <p className="opacity-80">
+                            <p className="font-semibold truncate">{shift.title}</p>
+                            <p className="opacity-90 text-xs mt-0.5">
                               {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
                             </p>
                             {/* Show hours breakdown with break */}
@@ -167,7 +167,7 @@ export function ScheduleCalendar({
                               const breakHours = (shift.scheduledBreakMinutes || 0) / 60;
                               const paidHours = totalHours - breakHours;
                               return (
-                                <div className="mt-1 py-1 px-1.5 rounded bg-black/10 text-[10px]">
+                                <div className="mt-1.5 py-1 px-1.5 rounded bg-black/10 text-xs">
                                   <span className="font-medium">{paidHours.toFixed(1)}h paid</span>
                                   {breakHours > 0 && (
                                     <span className="opacity-80"> ({shift.scheduledBreakMinutes}m break)</span>
@@ -176,17 +176,17 @@ export function ScheduleCalendar({
                               );
                             })()}
                             {shift.assignedTo && !isMyShift && (
-                              <p className="truncate opacity-70 mt-1">
+                              <p className="truncate opacity-80 mt-1.5 text-xs">
                                 {shift.assignedTo.name}
                               </p>
                             )}
                             {shift.isOpen && (
-                              <Badge variant="warning" className="mt-1 text-[10px]">
+                              <Badge variant="warning" className="mt-1.5 text-xs">
                                 Open
                               </Badge>
                             )}
                             {shift.category && (
-                              <p className="truncate opacity-80 text-[10px] mt-0.5">
+                              <p className="truncate opacity-80 text-xs mt-1">
                                 {shift.category.name}
                               </p>
                             )}
@@ -219,7 +219,7 @@ export function ScheduleCalendar({
                     <div
                       key={i}
                       className={cn(
-                        "min-h-[100px] rounded border p-1",
+                        "min-h-[140px] rounded border p-2",
                         isToday && "bg-primary/5 border-primary",
                         !isCurrentMonth && "opacity-40"
                       )}

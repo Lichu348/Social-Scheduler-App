@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ScheduleWithDnd } from "@/components/schedule-with-dnd";
-import { ShiftTemplateSidebar } from "@/components/shift-template-sidebar";
 import { CreateShiftDialog } from "@/components/create-shift-dialog";
 import { LocationScheduleFilter } from "@/components/location-schedule-filter";
 
@@ -183,18 +182,14 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
         </div>
       )}
 
-      <div className="flex gap-6">
-        {isManager && <ShiftTemplateSidebar />}
-        <div className="flex-1 min-w-0">
-          <ScheduleWithDnd
-            shifts={shifts}
-            users={users}
-            currentUserId={session.user.id}
-            isManager={isManager}
-            locationId={currentLocationId}
-          />
-        </div>
-      </div>
+      <ScheduleWithDnd
+        shifts={shifts}
+        users={users}
+        currentUserId={session.user.id}
+        isManager={isManager}
+        locationId={currentLocationId}
+        showSidebar={isManager}
+      />
     </div>
   );
 }

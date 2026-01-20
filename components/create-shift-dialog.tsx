@@ -211,15 +211,15 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
           Create Shift
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create New Shift</DialogTitle>
           <DialogDescription>
             Add a new shift to the schedule. Leave unassigned to create an open shift.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2">
             <div className="space-y-2">
               <Label htmlFor="title">Shift Title</Label>
               <Input
@@ -353,7 +353,7 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>

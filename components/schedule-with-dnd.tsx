@@ -60,6 +60,7 @@ interface ScheduleWithDndProps {
   currentUserId: string;
   isManager: boolean;
   locationId?: string | null;
+  showSidebar?: boolean;
 }
 
 export function ScheduleWithDnd({
@@ -68,6 +69,7 @@ export function ScheduleWithDnd({
   currentUserId,
   isManager,
   locationId,
+  showSidebar = true,
 }: ScheduleWithDndProps) {
   const [mounted, setMounted] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<ShiftTemplate | null>(null);
@@ -142,6 +144,8 @@ export function ScheduleWithDnd({
   }
 
   // For managers after mount, enable DnD on calendar
+  // IMPORTANT: Both the sidebar (draggable source) and calendar (drop target)
+  // must be inside the same DndContext for drag-and-drop to work
   return (
     <DndContext
       sensors={sensors}
@@ -149,13 +153,18 @@ export function ScheduleWithDnd({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <ScheduleCalendarWithDrop
-        shifts={shifts}
-        users={users}
-        currentUserId={currentUserId}
-        isManager={isManager}
-        enableDroppable={true}
-      />
+      <div className="flex gap-6">
+        {showSidebar && <ShiftTemplateSidebar />}
+        <div className="flex-1 min-w-0">
+          <ScheduleCalendarWithDrop
+            shifts={shifts}
+            users={users}
+            currentUserId={currentUserId}
+            isManager={isManager}
+            enableDroppable={true}
+          />
+        </div>
+      </div>
 
       {/* Drag overlay for better visual feedback */}
       <DragOverlay>
