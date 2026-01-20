@@ -135,7 +135,7 @@ export function QuickAddShiftDialog({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Shift</DialogTitle>
           <DialogDescription>{formatDate(date)}</DialogDescription>

@@ -391,7 +391,7 @@ export function ComplianceStaffView({ userId, staffRole }: ComplianceStaffViewPr
 
       {/* Sign/Acknowledge Dialog */}
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedItem?.type === "POLICY" ? "Acknowledge Policy" : "Confirm Qualification"}

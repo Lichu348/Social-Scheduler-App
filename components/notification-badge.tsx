@@ -113,7 +113,7 @@ export function NotificationBadge() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-80 p-0" align="end" side="top" sideOffset={8}>
         <div className="flex items-center justify-between p-3 border-b">
           <h4 className="font-semibold">Notifications</h4>
           {unreadCount > 0 && (

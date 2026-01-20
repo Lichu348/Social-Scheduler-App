@@ -29,7 +29,7 @@ export function UserRatesDialog({ userId, userName }: UserRatesDialogProps) {
           Rates
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Pay Rates - {userName}</DialogTitle>
           <DialogDescription>
