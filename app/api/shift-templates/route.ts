@@ -52,6 +52,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    if (!session.user.organizationId) {
+      return NextResponse.json({ error: "No organization found" }, { status: 400 });
+    }
+
     const { name, startTime, endTime, categoryId, defaultTitle, description } =
       await req.json();
 
@@ -112,8 +116,9 @@ export async function POST(req: Request) {
     return NextResponse.json(template);
   } catch (error) {
     console.error("Create shift template error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to create shift template" },
+      { error: `Failed to create shift template: ${message}` },
       { status: 500 }
     );
   }
