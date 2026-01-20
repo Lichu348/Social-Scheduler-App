@@ -38,12 +38,15 @@ export async function GET(req: Request) {
     const prevMonthStart = new Date(year, monthNum - 2, 1);
     const prevMonthEnd = new Date(year, monthNum - 1, 0, 23, 59, 59, 999);
 
+    const isAdmin = session.user.role === "ADMIN";
+
     // Fetch all staff in the organization
     const allStaff = await prisma.user.findMany({
       where: { organizationId: session.user.organizationId },
       select: {
         id: true,
         name: true,
+        role: true,
         paymentType: true,
         monthlySalary: true,
         categoryRates: {
@@ -76,6 +79,7 @@ export async function GET(req: Request) {
           select: {
             id: true,
             name: true,
+            role: true,
             paymentType: true,
             monthlySalary: true,
             categoryRates: {
@@ -107,6 +111,7 @@ export async function GET(req: Request) {
         user: {
           select: {
             id: true,
+            role: true,
             paymentType: true,
             monthlySalary: true,
             categoryRates: {
@@ -144,6 +149,7 @@ export async function GET(req: Request) {
     const staffCosts: Record<string, {
       userId: string;
       name: string;
+      role: string;
       paymentType: string;
       hours: number;
       grossPay: number;
@@ -161,6 +167,7 @@ export async function GET(req: Request) {
         staffCosts[staff.id] = {
           userId: staff.id,
           name: staff.name,
+          role: staff.role,
           paymentType: staff.paymentType,
           hours: 0, // Will be updated from time entries if any
           grossPay: costs.grossPay,
@@ -197,6 +204,7 @@ export async function GET(req: Request) {
           staffCosts[userId] = {
             userId,
             name: entry.user.name,
+            role: entry.user.role,
             paymentType: entry.user.paymentType,
             hours: 0,
             grossPay: 0,
@@ -359,6 +367,11 @@ export async function GET(req: Request) {
       loc.hours = Math.round(loc.hours * 100) / 100;
     }
 
+    // Filter staff list - non-admins can't see manager/admin salaries
+    const visibleStaff = isAdmin
+      ? staffList
+      : staffList.filter(s => s.role === "EMPLOYEE");
+
     return NextResponse.json({
       period: {
         month,
@@ -367,7 +380,7 @@ export async function GET(req: Request) {
       },
       totals,
       variance,
-      staff: staffList.sort((a, b) => b.totalCost - a.totalCost),
+      staff: visibleStaff.sort((a, b) => b.totalCost - a.totalCost),
       locations: Object.values(locationCosts).filter(l => l.hours > 0),
       allLocations: locations,
     });
