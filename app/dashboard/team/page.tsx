@@ -31,7 +31,7 @@ async function getTeamData(organizationId: string) {
         },
         _count: {
           select: {
-            shifts: true,
+            assignedShifts: true,
             timeEntries: true,
             certifications: true,
           },
@@ -191,7 +191,7 @@ export default async function TeamPage() {
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="text-right">
-                    <p className="text-sm font-medium">{user._count.shifts}</p>
+                    <p className="text-sm font-medium">{user._count.assignedShifts}</p>
                     <p className="text-xs text-muted-foreground">Shifts</p>
                   </div>
                   <div className="text-right">

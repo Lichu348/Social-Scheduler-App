@@ -14,7 +14,7 @@ export async function GET() {
       where: { organizationId: session.user.organizationId },
       include: {
         _count: {
-          select: { userCertifications: true },
+          select: { certifications: true },
         },
       },
       orderBy: { name: "asc" },

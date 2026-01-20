@@ -14,7 +14,7 @@ interface CertificationType {
   validityMonths: number;
   isRequired: boolean;
   _count: {
-    userCertifications: number;
+    certifications: number;
   };
 }
 
@@ -154,7 +154,7 @@ export function CertificationsManager() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground ml-6">
-                    Valid for {type.validityMonths} months • {type._count.userCertifications} issued
+                    Valid for {type.validityMonths} months • {type._count.certifications} issued
                   </p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => handleDelete(type.id)}>
