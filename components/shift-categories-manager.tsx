@@ -82,7 +82,7 @@ export function ShiftCategoriesManager() {
 
   const handleUpdate = async (id: string) => {
     try {
-      const res = await fetch(`/api/shift-categories/${id}`, {
+      const res = await fetch(`/api/shift-categories/£{id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -107,7 +107,7 @@ export function ShiftCategoriesManager() {
     if (!confirm("Are you sure you want to delete this category?")) return;
 
     try {
-      const res = await fetch(`/api/shift-categories/${id}`, {
+      const res = await fetch(`/api/shift-categories/£{id}`, {
         method: "DELETE",
       });
 
@@ -149,7 +149,7 @@ export function ShiftCategoriesManager() {
         {categories.map((category) => (
           <div
             key={category.id}
-            className={`flex items-center gap-3 p-3 border rounded-md ${
+            className={`flex items-center gap-3 p-3 border rounded-md £{
               !category.isActive ? "opacity-50" : ""
             }`}
           >
@@ -173,7 +173,7 @@ export function ShiftCategoriesManager() {
                   required
                 />
                 <div className="flex items-center gap-1">
-                  <span className="text-sm text-muted-foreground">$</span>
+                  <span className="text-sm text-muted-foreground">£</span>
                   <Input
                     type="number"
                     step="0.01"
@@ -212,7 +212,7 @@ export function ShiftCategoriesManager() {
                 />
                 <span className="flex-1 font-medium">{category.name}</span>
                 <span className="text-sm text-muted-foreground">
-                  ${category.hourlyRate.toFixed(2)}/hr
+                  £{category.hourlyRate.toFixed(2)}/hr
                 </span>
                 {!category.isActive && (
                   <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">Inactive</span>
@@ -244,7 +244,7 @@ export function ShiftCategoriesManager() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="catRate">Hourly Rate ($)</Label>
+              <Label htmlFor="catRate">Hourly Rate (£)</Label>
               <Input
                 id="catRate"
                 type="number"
@@ -264,7 +264,7 @@ export function ShiftCategoriesManager() {
                 <button
                   key={c.value}
                   type="button"
-                  className={`w-8 h-8 rounded-full border-2 ${
+                  className={`w-8 h-8 rounded-full border-2 £{
                     formData.color === c.value ? "border-foreground" : "border-transparent"
                   }`}
                   style={{ backgroundColor: c.value }}

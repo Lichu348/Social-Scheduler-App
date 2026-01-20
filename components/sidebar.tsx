@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
   Coffee,
   BookOpen,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -43,6 +44,7 @@ const navigation = [
   { name: "Certifications", href: "/dashboard/certifications", icon: Award, managerOnly: true },
   { name: "Training", href: "/dashboard/training", icon: BookOpen },
   { name: "Locations", href: "/dashboard/locations", icon: MapPin, managerOnly: true },
+  { name: "Shift Types", href: "/dashboard/shift-types", icon: Layers, adminOnly: true },
   { name: "Break Rules", href: "/dashboard/break-rules", icon: Coffee, adminOnly: true },
   { name: "Export", href: "/dashboard/export", icon: FileSpreadsheet, managerOnly: true },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
