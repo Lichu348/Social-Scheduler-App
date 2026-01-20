@@ -27,13 +27,26 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     },
   });
 
+  const isAdmin = role === "ADMIN";
+
+  // Get all locations for the organization (admins always have access to all)
+  const allOrgLocations = await prisma.location.findMany({
+    where: { organizationId, isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
   // Get list of locations this user can access
-  const userLocationIds = currentUser?.locationAccess.map((la) => la.location.id) || [];
-  const userLocations = currentUser?.locationAccess.map((la) => la.location) || [];
+  // Admins always have access to ALL locations
+  const userLocationIds = isAdmin
+    ? allOrgLocations.map((l) => l.id)
+    : (currentUser?.locationAccess.map((la) => la.location.id) || []);
+  const userLocations = isAdmin
+    ? allOrgLocations
+    : (currentUser?.locationAccess.map((la) => la.location) || []);
 
   // Determine which location to filter by
   let filterLocationId: string | null = null;
-  const isAdmin = role === "ADMIN";
   const isManager = role === "MANAGER";
 
   if (isAdmin) {
@@ -67,7 +80,7 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     }
   }
 
-  const [shifts, users, organization, allLocations, availability, categories, holidays] = await Promise.all([
+  const [shifts, users, organization, availability, categories, holidays] = await Promise.all([
     prisma.shift.findMany({
       where: {
         organizationId,
@@ -100,11 +113,6 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     prisma.organization.findUnique({
       where: { id: organizationId },
       select: { breakRules: true },
-    }),
-    prisma.location.findMany({
-      where: { organizationId, isActive: true },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
     }),
     prisma.staffAvailability.findMany({
       where: {
@@ -151,7 +159,7 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     shifts,
     users,
     breakRules: organization?.breakRules || "",
-    allLocations, // All locations for admins/managers
+    allOrgLocations, // All locations for admins/managers
     userLocations, // User's assigned locations for staff dropdown
     currentLocationId: filterLocationId,
     userLocationIds,
@@ -184,7 +192,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
     shifts,
     users,
     breakRules,
-    allLocations,
+    allOrgLocations,
     userLocations,
     currentLocationId,
     userLocationIds,
@@ -206,8 +214,8 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
   // Admins see all locations
   // Managers see only their assigned locations (with "All My Locations" option if multiple)
   // Staff see only their assigned locations (no "All" option)
-  const showLocationDropdown = allLocations.length > 0;
-  const dropdownLocations = isAdmin ? allLocations : userLocations;
+  const showLocationDropdown = allOrgLocations.length > 0;
+  const dropdownLocations = isAdmin ? allOrgLocations : userLocations;
   const showAllOption = isAdmin || (isManager && userLocations.length > 1);
 
   return (
@@ -233,14 +241,14 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
             <CreateShiftDialog
               users={users}
               breakRules={breakRules}
-              locations={isAdmin ? allLocations : userLocations}
+              locations={isAdmin ? allOrgLocations : userLocations}
               defaultLocationId={currentLocationId}
             />
           )}
         </div>
       </div>
 
-      {!isAdmin && userLocationIds.length === 0 && allLocations.length > 0 && (
+      {!isAdmin && !isManager && userLocationIds.length === 0 && allOrgLocations.length > 0 && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
           You haven't been assigned to any locations yet. Contact your admin to be assigned.
         </div>
@@ -255,7 +263,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
         locationId={currentLocationId}
         showSidebar={isManager}
         categories={categories}
-        locations={isAdmin ? allLocations : userLocations}
+        locations={isAdmin ? allOrgLocations : userLocations}
         holidays={holidays}
       />
     </div>
