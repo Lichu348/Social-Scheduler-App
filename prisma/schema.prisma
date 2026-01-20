@@ -56,21 +56,22 @@ model HolidayRequest {
 }
 
 model Location {
-  id                  String          @id @default(cuid())
+  id                  String           @id @default(cuid())
   name                String
   address             String?
   latitude            Float?
   longitude           Float?
-  clockInRadiusMetres Int             @default(100)
-  isActive            Boolean         @default(true)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  clockInRadiusMetres Int              @default(100)
+  isActive            Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
   organizationId      String
   breakRules          String?
-  organization        Organization    @relation(fields: [organizationId], references: [id])
+  organization        Organization     @relation(fields: [organizationId], references: [id])
   staff               LocationStaff[]
   shifts              Shift[]
   primaryUsers        User[]
+  maintenanceLogs     MaintenanceLog[]
 
   @@index([organizationId])
 }
@@ -135,29 +136,31 @@ model Notification {
 }
 
 model Organization {
-  id                   String              @id @default(cuid())
-  name                 String
-  timezone             String              @default("UTC")
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
-  breakRules           String              @default("[{\"minHours\":4,\"breakMinutes\":15},{\"minHours\":6,\"breakMinutes\":30},{\"minHours\":8,\"breakMinutes\":60}]")
-  clockInWindowMinutes Int                 @default(15)
-  clockOutGraceMinutes Int                 @default(30)
-  shiftReminderHours   Int                 @default(24)
-  locationLatitude     Float?
-  locationLongitude    Float?
-  clockInRadiusMetres  Int                 @default(100)
-  requireGeolocation   Boolean             @default(true)
-  announcements        Announcement[]
-  certificationTypes   CertificationType[]
-  complianceItems      ComplianceItem[]
-  locations            Location[]
-  shifts               Shift[]
-  shiftCategories      ShiftCategory[]
-  shiftTemplates       ShiftTemplate[]
-  staffRoles           StaffRole[]
-  trainingDocuments    TrainingDocument[]
-  users                User[]
+  id                    String                 @id @default(cuid())
+  name                  String
+  timezone              String                 @default("UTC")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  breakRules            String                 @default("[{\"minHours\":4,\"breakMinutes\":15},{\"minHours\":6,\"breakMinutes\":30},{\"minHours\":8,\"breakMinutes\":60}]")
+  clockInWindowMinutes  Int                    @default(15)
+  clockOutGraceMinutes  Int                    @default(30)
+  shiftReminderHours    Int                    @default(24)
+  locationLatitude      Float?
+  locationLongitude     Float?
+  clockInRadiusMetres   Int                    @default(100)
+  requireGeolocation    Boolean                @default(true)
+  announcements         Announcement[]
+  certificationTypes    CertificationType[]
+  complianceItems       ComplianceItem[]
+  locations             Location[]
+  shifts                Shift[]
+  shiftCategories       ShiftCategory[]
+  shiftTemplates        ShiftTemplate[]
+  staffRoles            StaffRole[]
+  trainingDocuments     TrainingDocument[]
+  users                 User[]
+  maintenanceCheckTypes MaintenanceCheckType[]
+  maintenanceLogs       MaintenanceLog[]
 }
 
 model Shift {
@@ -340,13 +343,21 @@ model UserCompliance {
   // Dates
   issueDate         DateTime       @default(now()) // When issued/acknowledged
   expiryDate        DateTime       // When it expires
-  // Signature
+  // Employee Signature
   signature         String?        // User's digital signature (typed name)
   signedAt          DateTime?      // When they signed
   // For QUALIFICATIONs
   certificateNumber String?        // External certificate number
   proofUrl          String?        // Uploaded certificate image
   notes             String?
+  // For PERFORMANCE REVIEWs
+  rating            Int?           // Performance rating (1-5)
+  managerNotes      String?        // Manager's feedback
+  employeeComments  String?        // Employee's response/comments
+  goals             String?        // Goals for next review period
+  managerSignature  String?        // Manager's signature
+  managerSignedAt   DateTime?      // When manager signed
+  reviewedById      String?        // Manager who conducted the review
   // Status
   status            String         @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
   // Relations
@@ -361,6 +372,7 @@ model UserCompliance {
   @@unique([userId, complianceItemId])
   @@index([userId])
   @@index([complianceItemId])
+  @@index([reviewedById])
   @@index([expiryDate])
 }
 
@@ -431,6 +443,7 @@ model User {
   certifications    UserCertification[]
   categoryRates     UserCategoryRate[]
   complianceRecords UserCompliance[]
+  maintenanceLogs   MaintenanceLog[]
 
   @@index([email])
   @@index([organizationId])
@@ -472,4 +485,54 @@ model UserCategoryRate {
   @@unique([userId, categoryId])
   @@index([userId])
   @@index([categoryId])
+}
+
+// MAINTENANCE LOGGING SYSTEM
+// Defines check types with configurable frequency
+model MaintenanceCheckType {
+  id             String       @id @default(cuid())
+  name           String       // "Matting", "Drills", "Ladders", "Hold Checks"
+  description    String?
+  frequencyDays  Int          @default(1) // 1=daily, 7=weekly, etc.
+  isActive       Boolean      @default(true)
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  logs           MaintenanceLog[]
+
+  @@index([organizationId])
+}
+
+// Records each maintenance check
+model MaintenanceLog {
+  id             String               @id @default(cuid())
+  checkTypeId    String
+  checkType      MaintenanceCheckType @relation(fields: [checkTypeId], references: [id])
+  locationId     String
+  location       Location             @relation(fields: [locationId], references: [id])
+
+  // Check result
+  status         String               @default("PASS") // PASS, FAIL, NEEDS_ATTENTION
+  notes          String?
+  issues         String?              // JSON array of flagged issues
+
+  // Manager sign-off
+  signature      String               // Manager's typed name (required)
+  signedAt       DateTime             @default(now())
+  signedById     String
+  signedBy       User                 @relation(fields: [signedById], references: [id])
+
+  // Timestamps
+  checkDate      DateTime             @default(now()) // Date of the check
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  organizationId String
+  organization   Organization         @relation(fields: [organizationId], references: [id])
+
+  @@index([locationId])
+  @@index([checkTypeId])
+  @@index([organizationId])
+  @@index([checkDate])
 }

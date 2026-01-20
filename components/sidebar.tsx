@@ -19,6 +19,7 @@ import {
   Coffee,
   Layers,
   ShieldCheck,
+  Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -41,6 +42,7 @@ const navigation = [
   { name: "Holidays", href: "/dashboard/holidays", icon: Palmtree },
   { name: "Team", href: "/dashboard/team", icon: Users },
   { name: "Compliance", href: "/dashboard/compliance", icon: ShieldCheck },
+  { name: "Maintenance", href: "/dashboard/maintenance", icon: Wrench, managerOnly: true },
   { name: "Locations", href: "/dashboard/locations", icon: MapPin, managerOnly: true },
   { name: "Shift Types", href: "/dashboard/shift-types", icon: Layers, adminOnly: true },
   { name: "Break Rules", href: "/dashboard/break-rules", icon: Coffee, adminOnly: true },
