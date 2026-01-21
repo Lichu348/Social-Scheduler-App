@@ -228,6 +228,7 @@ export default async function TimesheetPage() {
                       </span>
                     </p>
                   </div>
+                  {isManager && <TimesheetActions entry={entry} />}
                 </div>
               ))}
             </div>

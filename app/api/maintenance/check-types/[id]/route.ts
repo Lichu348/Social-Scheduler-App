@@ -25,7 +25,7 @@ export async function PATCH(
 
     const user = session.user as ExtendedUser;
 
-    if (user.role !== "ADMIN") {
+    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -77,7 +77,7 @@ export async function DELETE(
 
     const user = session.user as ExtendedUser;
 
-    if (user.role !== "ADMIN") {
+    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

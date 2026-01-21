@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { MaintenanceOverview } from "@/components/maintenance-overview";
 import { MaintenanceHistory } from "@/components/maintenance-history";
 import { MaintenanceCheckTypesManager } from "@/components/maintenance-check-types-manager";
+import { MaintenanceWorkLog } from "@/components/maintenance-work-log";
 import { MapPin, ChevronDown } from "lucide-react";
 
 interface Location {
@@ -90,9 +91,10 @@ export function MaintenancePageContent({
       {/* Tabs */}
       <Tabs defaultValue="today">
         <TabsList className="mb-6">
-          <TabsTrigger value="today">Today&apos;s Checks</TabsTrigger>
+          <TabsTrigger value="today">Safety Checks</TabsTrigger>
+          <TabsTrigger value="work-log">Work Log</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
-          {isAdmin && <TabsTrigger value="check-types">Check Types</TabsTrigger>}
+          {isManager && <TabsTrigger value="check-types">Check Types</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="today">
@@ -103,12 +105,26 @@ export function MaintenancePageContent({
           />
         </TabsContent>
 
+        <TabsContent value="work-log">
+          <Card>
+            <CardHeader>
+              <CardTitle>Maintenance Work Log</CardTitle>
+              <CardDescription>
+                Log repairs, cleaning, and other maintenance work as it happens
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <MaintenanceWorkLog selectedLocationId={selectedLocationId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="history">
           <Card>
             <CardHeader>
-              <CardTitle>Maintenance History</CardTitle>
+              <CardTitle>Safety Check History</CardTitle>
               <CardDescription>
-                View past maintenance logs and filter by location, date, or status
+                View past safety check logs and filter by location, date, or status
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -117,7 +133,7 @@ export function MaintenancePageContent({
           </Card>
         </TabsContent>
 
-        {isAdmin && (
+        {isManager && (
           <TabsContent value="check-types">
             <Card>
               <CardHeader>

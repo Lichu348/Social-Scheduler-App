@@ -51,7 +51,7 @@ export async function GET() {
   }
 }
 
-// POST create new check type (admin only)
+// POST create new check type (managers and admins)
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
 
     const user = session.user as ExtendedUser;
 
-    if (user.role !== "ADMIN") {
+    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

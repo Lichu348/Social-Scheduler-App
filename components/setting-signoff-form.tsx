@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { PlusCircle, X, ImagePlus } from "lucide-react";
+import { PlusCircle, X, ImagePlus, Upload, Loader2 } from "lucide-react";
 
 interface Location {
   id: string;
@@ -30,8 +30,10 @@ interface SettingSignoffFormProps {
 
 export function SettingSignoffForm({ locations }: SettingSignoffFormProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState("");
   const [formData, setFormData] = useState({
@@ -46,13 +48,59 @@ export function SettingSignoffForm({ locations }: SettingSignoffFormProps) {
     settingDate: new Date().toISOString().split("T")[0],
   });
 
-  const handleAddPhoto = () => {
+  const handleAddPhotoUrl = () => {
     if (photoUrl && formData.photos.length < 5) {
       setFormData({
         ...formData,
         photos: [...formData.photos, photoUrl],
       });
       setPhotoUrl("");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const remainingSlots = 5 - formData.photos.length;
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (const file of filesToUpload) {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", file);
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formDataUpload,
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Upload failed");
+        }
+
+        const { url } = await res.json();
+        uploadedUrls.push(url);
+      }
+
+      setFormData({
+        ...formData,
+        photos: [...formData.photos, ...uploadedUrls],
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload photos");
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -260,9 +308,44 @@ export function SettingSignoffForm({ locations }: SettingSignoffFormProps) {
             {/* Photos */}
             <div className="space-y-2">
               <Label>Photos of the area (up to 5)</Label>
+
+              {/* File Upload */}
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  onChange={handleFileUpload}
+                  disabled={formData.photos.length >= 5 || uploading}
+                  className="hidden"
+                  id="photo-upload"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={formData.photos.length >= 5 || uploading}
+                  className="flex-1"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Photos
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* URL Input (alternative) */}
               <div className="flex gap-2">
                 <Input
-                  placeholder="Paste photo URL..."
+                  placeholder="Or paste photo URL..."
                   value={photoUrl}
                   onChange={(e) => setPhotoUrl(e.target.value)}
                   disabled={formData.photos.length >= 5}
@@ -270,12 +353,13 @@ export function SettingSignoffForm({ locations }: SettingSignoffFormProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleAddPhoto}
+                  onClick={handleAddPhotoUrl}
                   disabled={!photoUrl || formData.photos.length >= 5}
                 >
                   <ImagePlus className="h-4 w-4" />
                 </Button>
               </div>
+
               {formData.photos.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formData.photos.map((url, index) => (
@@ -303,7 +387,7 @@ export function SettingSignoffForm({ locations }: SettingSignoffFormProps) {
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Paste URLs from photo hosting services (e.g., Google Photos, Imgur)
+                Upload photos directly or paste URLs. Max 5MB per image.
               </p>
             </div>
 
@@ -324,7 +408,7 @@ export function SettingSignoffForm({ locations }: SettingSignoffFormProps) {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || uploading}>
               {loading ? "Submitting..." : "Submit Sign-off"}
             </Button>
           </DialogFooter>

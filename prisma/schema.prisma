@@ -74,12 +74,14 @@ model Location {
   growthMetrics       GrowthMetric[]      @relation("GrowthMetrics")
   staff               LocationStaff[]
   shifts              Shift[]
-  shiftTemplates      ShiftTemplate[]
-  primaryUsers        User[]
-  maintenanceLogs     MaintenanceLog[]
-  spendRequests       SpendRequest[]
-  cashTransactions    CashTransaction[]
-  settingSignoffs     SettingSignoff[]  @relation("SettingSignoffs")
+  shiftTemplates       ShiftTemplate[]
+  primaryUsers         User[]
+  maintenanceLogs      MaintenanceLog[]
+  maintenanceWorkLogs  MaintenanceWorkLog[]
+  spendRequests        SpendRequest[]
+  cashTransactions     CashTransaction[]
+  cashUpSessions       CashUpSession[]
+  settingSignoffs      SettingSignoff[]  @relation("SettingSignoffs")
 
   @@index([organizationId])
 }
@@ -177,6 +179,8 @@ model Organization {
   spendRequests         SpendRequest[]
   cashTransactions      CashTransaction[]
   settingSignoffs       SettingSignoff[]
+  maintenanceWorkLogs   MaintenanceWorkLog[]
+  cashUpSessions        CashUpSession[]
 }
 
 model Shift {
@@ -471,8 +475,11 @@ model User {
   maintenanceLogs   MaintenanceLog[]
   spendRequestsCreated  SpendRequest[] @relation("SpendRequestsCreated")
   spendRequestsReviewed SpendRequest[] @relation("SpendRequestsReviewed")
-  cashTransactionsLogged CashTransaction[] @relation("CashTransactionsLogged")
-  settingSignoffs        SettingSignoff[]  @relation("SettingSignoffs")
+  cashTransactionsLogged   CashTransaction[]    @relation("CashTransactionsLogged")
+  settingSignoffs          SettingSignoff[]     @relation("SettingSignoffs")
+  maintenanceWorkLogsLogged MaintenanceWorkLog[] @relation("MaintenanceWorkLogsLogged")
+  cashUpSessionsCompleted  CashUpSession[]      @relation("CashUpSessionsCompleted")
+  cashUpSessionsReviewed   CashUpSession[]      @relation("CashUpSessionsReviewed")
 
   @@index([email])
   @@index([organizationId])
@@ -761,6 +768,91 @@ model CashTransaction {
   @@index([locationId])
   @@index([createdAt])
   @@index([type])
+}
+
+// MAINTENANCE WORK LOG
+// Track actual maintenance work/repairs as they happen (separate from safety checks)
+model MaintenanceWorkLog {
+  id             String       @id @default(cuid())
+  title          String                           // What was done
+  description    String?                          // Details of the work
+  category       String       @default("REPAIR") // REPAIR, CLEANING, REPLACEMENT, INSPECTION, OTHER
+  status         String       @default("COMPLETED") // COMPLETED, IN_PROGRESS, DEFERRED
+  completedBy    String                           // Name of person who did the work
+  completedAt    DateTime     @default(now())    // When the work was done
+  photoUrls      String       @default("[]")     // JSON array of photo URLs
+  partsUsed      String?                          // Parts/materials used
+  estimatedCost  Float?                           // Estimated cost if applicable
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  locationId     String
+  location       Location     @relation(fields: [locationId], references: [id])
+
+  loggedById     String
+  loggedBy       User         @relation("MaintenanceWorkLogsLogged", fields: [loggedById], references: [id])
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([locationId])
+  @@index([organizationId])
+  @@index([completedAt])
+  @@index([category])
+}
+
+// END OF DAY CASH UP / RECONCILIATION
+model CashUpSession {
+  id                    String    @id @default(cuid())
+  date                  DateTime  // Date of the cash up
+  locationId            String
+  location              Location  @relation(fields: [locationId], references: [id])
+
+  // Expected values (from system/Z-read)
+  expectedCash          Float     @default(0)
+  expectedPdq           Float     @default(0)
+  expectedOnline        Float     @default(0)
+  expectedZRead         Float     @default(0) // Z-read expected total
+
+  // Actual values (counted)
+  actualCash            Float     @default(0)
+  actualPdq             Float     @default(0)
+  actualOnline          Float     @default(0)
+  actualZRead           Float     @default(0) // Z-read actual
+
+  // Gift cards
+  giftCardsRedeemed     Float     @default(0)
+
+  // Discrepancies (calculated: actual - expected)
+  cashDiscrepancy       Float     @default(0)
+  cardDiscrepancy       Float     @default(0)
+  totalDiscrepancy      Float     @default(0)
+
+  // Notes and status
+  notes                 String?
+  status                String    @default("DRAFT") // DRAFT, SUBMITTED, REVIEWED
+
+  // Who completed it
+  completedById         String?
+  completedBy           User?     @relation("CashUpSessionsCompleted", fields: [completedById], references: [id])
+  completedAt           DateTime?
+
+  // Who reviewed it
+  reviewedById          String?
+  reviewedBy            User?     @relation("CashUpSessionsReviewed", fields: [reviewedById], references: [id])
+  reviewedAt            DateTime?
+  reviewNotes           String?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, locationId, date])
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([date])
+  @@index([status])
 }
 
 // SETTING SIGN-OFF SYSTEM
