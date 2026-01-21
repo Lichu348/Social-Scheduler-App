@@ -181,6 +181,7 @@ model Organization {
   settingSignoffs       SettingSignoff[]
   maintenanceWorkLogs   MaintenanceWorkLog[]
   cashUpSessions        CashUpSession[]
+  payPeriods            PayPeriod[]
 }
 
 model Shift {
@@ -895,4 +896,23 @@ model SettingSignoff {
   @@index([locationId])
   @@index([settingDate])
   @@index([signedOffById])
+}
+
+// PAY PERIODS
+// Track pay period cut-off dates for staff visibility
+model PayPeriod {
+  id             String       @id @default(cuid())
+  name           String                           // e.g., "January 2026" or "Week 1"
+  startDate      DateTime                         // Start of period (inclusive)
+  endDate        DateTime                         // End of period (inclusive)
+  payDate        DateTime?                        // When staff get paid (optional)
+  notes          String?                          // Any notes for staff
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([startDate, endDate])
 }

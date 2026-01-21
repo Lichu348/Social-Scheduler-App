@@ -5,6 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatTime, calculateHours } from "@/lib/utils";
 import { TimesheetActions } from "@/components/timesheet-actions";
 import { ExportTimesheetDialog } from "@/components/export-timesheet-dialog";
+import { Calendar, Banknote } from "lucide-react";
+
+interface PayPeriod {
+  id: string;
+  name: string;
+  startDate: Date;
+  endDate: Date;
+  payDate: Date | null;
+  notes: string | null;
+}
 
 async function getTimeEntries(userId: string, organizationId: string, role: string) {
   const isManager = role === "MANAGER" || role === "ADMIN";
@@ -30,15 +40,63 @@ async function getTimeEntries(userId: string, organizationId: string, role: stri
   });
 }
 
+async function getCurrentPayPeriod(organizationId: string): Promise<PayPeriod | null> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return prisma.payPeriod.findFirst({
+    where: {
+      organizationId,
+      isActive: true,
+      startDate: { lte: today },
+      endDate: { gte: today },
+    },
+  });
+}
+
+async function getPayPeriodHours(userId: string, startDate: Date, endDate: Date): Promise<number> {
+  const entries = await prisma.timeEntry.findMany({
+    where: {
+      userId,
+      clockOut: { not: null },
+      clockIn: {
+        gte: startDate,
+        lte: new Date(endDate.getTime() + 24 * 60 * 60 * 1000 - 1), // End of endDate
+      },
+      status: { in: ["APPROVED", "PENDING"] }, // Count approved and pending hours
+    },
+    select: {
+      clockIn: true,
+      clockOut: true,
+      totalBreak: true,
+    },
+  });
+
+  return entries.reduce((total, entry) => {
+    if (!entry.clockOut) return total;
+    const hours = calculateHours(entry.clockIn, entry.clockOut);
+    return total + Math.max(0, hours - entry.totalBreak / 60);
+  }, 0);
+}
+
 export default async function TimesheetPage() {
   const session = await auth();
   if (!session?.user) return null;
 
-  const entries = await getTimeEntries(
-    session.user.id,
-    session.user.organizationId,
-    session.user.role
-  );
+  const [entries, currentPayPeriod] = await Promise.all([
+    getTimeEntries(session.user.id, session.user.organizationId, session.user.role),
+    getCurrentPayPeriod(session.user.organizationId),
+  ]);
+
+  // Get hours for the current pay period (for the current user)
+  let payPeriodHours = 0;
+  if (currentPayPeriod) {
+    payPeriodHours = await getPayPeriodHours(
+      session.user.id,
+      currentPayPeriod.startDate,
+      currentPayPeriod.endDate
+    );
+  }
 
   const isManager = session.user.role === "MANAGER" || session.user.role === "ADMIN";
   const pendingEntries = entries.filter((e) => e.status === "PENDING" && e.clockOut);
@@ -85,6 +143,54 @@ export default async function TimesheetPage() {
         {isManager && <ExportTimesheetDialog />}
       </div>
 
+      {/* Pay Period Card */}
+      {currentPayPeriod && (
+        <Card className="mb-6 border-green-200 bg-green-50/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Banknote className="h-5 w-5 text-green-600" />
+              <CardTitle className="text-green-800">Current Pay Period</CardTitle>
+            </div>
+            <CardDescription className="text-green-700">
+              {currentPayPeriod.name}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="text-center p-4 rounded-lg bg-white/70 border border-green-200">
+                <p className="text-3xl font-bold text-green-700">{payPeriodHours.toFixed(2)}</p>
+                <p className="text-sm text-green-600 font-medium">Hours This Period</p>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-white/70 border border-green-200">
+                <div className="flex items-center justify-center gap-2 text-green-700">
+                  <Calendar className="h-4 w-4" />
+                  <span className="text-sm font-medium">Period Dates</span>
+                </div>
+                <p className="text-sm mt-1 text-green-800">
+                  {formatDate(currentPayPeriod.startDate)} - {formatDate(currentPayPeriod.endDate)}
+                </p>
+              </div>
+              {currentPayPeriod.payDate && (
+                <div className="text-center p-4 rounded-lg bg-white/70 border border-green-200">
+                  <div className="flex items-center justify-center gap-2 text-green-700">
+                    <Banknote className="h-4 w-4" />
+                    <span className="text-sm font-medium">Pay Date</span>
+                  </div>
+                  <p className="text-sm mt-1 text-green-800 font-medium">
+                    {formatDate(currentPayPeriod.payDate)}
+                  </p>
+                </div>
+              )}
+            </div>
+            {currentPayPeriod.notes && (
+              <p className="text-sm text-green-700 mt-3 italic">
+                {currentPayPeriod.notes}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Card */}
       <Card className="mb-6">
         <CardHeader>
@@ -95,7 +201,7 @@ export default async function TimesheetPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <p className="text-3xl font-bold">{weeklyTotal.toFixed(2)}</p>
-              <p className="text-sm text-muted-foreground">Total Hours</p>
+              <p className="text-sm text-muted-foreground">Total Hours (Recent)</p>
             </div>
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <p className="text-3xl font-bold">{entries.filter((e) => e.clockOut).length}</p>

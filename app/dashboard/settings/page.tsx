@@ -11,6 +11,7 @@ import { LocationSettingsForm } from "@/components/location-settings-form";
 import { LocationsManager } from "@/components/locations-manager";
 import { StaffRolesManager } from "@/components/staff-roles-manager";
 import { AvailabilityForm } from "@/components/availability-form";
+import { PayPeriodsManager } from "@/components/pay-periods-manager";
 
 async function getSettingsData(userId: string, organizationId: string) {
   const [user, organization] = await Promise.all([
@@ -203,6 +204,9 @@ export default async function SettingsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Pay Periods (Admin only) */}
+        {isAdmin && <PayPeriodsManager />}
 
         {/* Staff Availability (All users) */}
         <Card>
