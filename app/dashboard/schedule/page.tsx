@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ScheduleGridWithDnd } from "@/components/schedule-grid-with-dnd";
 import { CreateShiftDialog } from "@/components/create-shift-dialog";
+import { CreateEventDialog } from "@/components/create-event-dialog";
 import { LocationScheduleFilter } from "@/components/location-schedule-filter";
 
 async function getScheduleData(organizationId: string, userId: string, role: string, locationId?: string | null) {
@@ -80,7 +81,21 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     }
   }
 
-  const [shifts, users, organization, availability, categories, holidays] = await Promise.all([
+  // Build event location filter - show events for the location OR org-wide events (no location)
+  let eventLocationFilter: object = {};
+  if (isAdmin) {
+    eventLocationFilter = filterLocationId
+      ? { OR: [{ locationId: filterLocationId }, { locationId: null }] }
+      : {};
+  } else if (userLocationIds.length > 0) {
+    if (filterLocationId) {
+      eventLocationFilter = { OR: [{ locationId: filterLocationId }, { locationId: null }] };
+    } else {
+      eventLocationFilter = { OR: [{ locationId: { in: userLocationIds } }, { locationId: null }] };
+    }
+  }
+
+  const [shifts, users, organization, availability, categories, holidays, events] = await Promise.all([
     prisma.shift.findMany({
       where: {
         organizationId,
@@ -153,6 +168,28 @@ async function getScheduleData(organizationId: string, userId: string, role: str
         reason: true,
       },
     }),
+    // Fetch events that overlap with the current period
+    prisma.event.findMany({
+      where: {
+        organizationId,
+        isActive: true,
+        OR: [
+          { startTime: { gte: startOfMonth, lt: endOfMonth } },
+          { endTime: { gte: startOfMonth, lt: endOfMonth } },
+          { AND: [{ startTime: { lt: startOfMonth } }, { endTime: { gte: endOfMonth } }] },
+        ],
+        ...eventLocationFilter,
+      },
+      include: {
+        location: {
+          select: { id: true, name: true },
+        },
+        createdBy: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: { startTime: "asc" },
+    }),
   ]);
 
   return {
@@ -173,6 +210,11 @@ async function getScheduleData(organizationId: string, userId: string, role: str
       ...h,
       startDate: h.startDate.toISOString(),
       endDate: h.endDate.toISOString(),
+    })),
+    events: events.map((e) => ({
+      ...e,
+      startTime: e.startTime.toISOString(),
+      endTime: e.endTime.toISOString(),
     })),
   };
 }
@@ -200,6 +242,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
     availability,
     categories,
     holidays,
+    events,
   } = await getScheduleData(
     session.user.organizationId,
     session.user.id,
@@ -238,12 +281,18 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
             />
           )}
           {isManager && (
-            <CreateShiftDialog
-              users={users}
-              breakRules={breakRules}
-              locations={isAdmin ? allOrgLocations : userLocations}
-              defaultLocationId={currentLocationId}
-            />
+            <>
+              <CreateEventDialog
+                locations={isAdmin ? allOrgLocations : userLocations}
+                defaultLocationId={currentLocationId}
+              />
+              <CreateShiftDialog
+                users={users}
+                breakRules={breakRules}
+                locations={isAdmin ? allOrgLocations : userLocations}
+                defaultLocationId={currentLocationId}
+              />
+            </>
           )}
         </div>
       </div>
@@ -265,6 +314,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
         categories={categories}
         locations={isAdmin ? allOrgLocations : userLocations}
         holidays={holidays}
+        events={events}
       />
     </div>
   );

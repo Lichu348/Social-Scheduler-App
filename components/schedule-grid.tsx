@@ -4,10 +4,11 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Plus, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar, Cake, Users, GraduationCap, Trophy, CalendarDays } from "lucide-react";
 import { cn, formatTime, getWeekDates, isSameDay } from "@/lib/utils";
 import { ShiftDetailDialog } from "./shift-detail-dialog";
 import { QuickAddShiftDialog } from "./quick-add-shift-dialog";
+import { EventDetailDialog } from "./event-detail-dialog";
 
 interface ShiftCategory {
   id: string;
@@ -61,6 +62,20 @@ interface Holiday {
   reason: string | null;
 }
 
+interface Event {
+  id: string;
+  title: string;
+  description: string | null;
+  eventType: string;
+  startTime: string;
+  endTime: string;
+  expectedGuests: number | null;
+  staffRequired: number | null;
+  color: string;
+  location: { id: string; name: string } | null;
+  createdBy: { id: string; name: string } | null;
+}
+
 interface ScheduleGridProps {
   shifts: Shift[];
   users: User[];
@@ -72,6 +87,7 @@ interface ScheduleGridProps {
   categories?: ShiftCategory[];
   locations?: Location[];
   holidays?: Holiday[];
+  events?: Event[];
 }
 
 // Droppable cell component for drag-and-drop
@@ -129,10 +145,12 @@ export function ScheduleGrid({
   categories = [],
   locations = [],
   holidays = [],
+  events = [],
 }: ScheduleGridProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("week");
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [quickAddData, setQuickAddData] = useState<{
     date: Date;
     userId: string | null;
@@ -237,6 +255,34 @@ export function ScheduleGrid({
     }) || null;
   };
 
+  const getEventsForDate = (date: Date): Event[] => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
+    return events.filter((event) => {
+      const eventStart = event.startTime.split("T")[0];
+      const eventEnd = event.endTime.split("T")[0];
+      return dateStr >= eventStart && dateStr <= eventEnd;
+    });
+  };
+
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case "PARTY":
+        return Cake;
+      case "GROUP":
+        return Users;
+      case "TRAINING":
+        return GraduationCap;
+      case "COMPETITION":
+        return Trophy;
+      default:
+        return CalendarDays;
+    }
+  };
+
   const getTotalHoursForUser = (userId: string) => {
     let totalMinutes = 0;
     orderedWeekDates.forEach((date) => {
@@ -319,10 +365,79 @@ export function ScheduleGrid({
     );
   };
 
+  const renderEventCard = (event: Event) => {
+    const Icon = getEventIcon(event.eventType);
+    const startDate = new Date(event.startTime);
+    const endDate = new Date(event.endTime);
+    const startStr = formatTime(startDate);
+    const endStr = formatTime(endDate);
+
+    // Calculate text color based on background
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 245, g: 158, b: 11 };
+    };
+    const rgb = hexToRgb(event.color);
+    const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+    const textColor = luminance > 0.5 ? "#1f2937" : "#ffffff";
+    const textSecondaryColor = luminance > 0.5 ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.8)";
+
+    return (
+      <button
+        key={event.id}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedEvent(event);
+        }}
+        className="w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-all hover:opacity-90 hover:shadow-lg shadow-md border-2 border-dashed"
+        style={{
+          backgroundColor: event.color,
+          color: textColor,
+          borderColor: luminance > 0.5 ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.4)",
+        }}
+      >
+        <div className="flex items-center gap-1.5">
+          <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="font-bold truncate">{event.title}</span>
+        </div>
+        <div className="text-xs mt-0.5" style={{ color: textSecondaryColor }}>
+          {startStr} - {endStr}
+        </div>
+        <div className="flex gap-2 mt-1 text-xs" style={{ color: textSecondaryColor }}>
+          {event.expectedGuests && (
+            <span className="flex items-center gap-0.5">
+              <Users className="h-3 w-3" />
+              {event.expectedGuests}
+            </span>
+          )}
+          {event.staffRequired && (
+            <span className="flex items-center gap-0.5">
+              +{event.staffRequired} staff
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  };
+
   const handleCellClick = (date: Date, userId: string | null) => {
     if (!isManager) return;
     setQuickAddData({ date, userId });
   };
+
+  // Hover hint component for adding shifts
+  const AddShiftHint = () => (
+    <div className="hidden group-hover:flex absolute inset-1 border-2 border-dashed border-gray-300 rounded-md items-center justify-center bg-gray-50/80 transition-all">
+      <div className="flex items-center gap-1 text-gray-500 text-xs font-medium">
+        <Plus className="h-3 w-3" />
+        Add Shift
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -451,6 +566,53 @@ export function ScheduleGrid({
             </thead>
 
             <tbody>
+              {/* Events Row - Only show if there are events */}
+              {events.length > 0 && (
+                <tr className="border-b bg-amber-50/50">
+                  <td className="px-4 py-4 border-r bg-amber-50 sticky left-0 z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center">
+                        <CalendarDays className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm text-amber-800">Events</p>
+                        <p className="text-xs text-amber-600">Parties, groups & bookings</p>
+                      </div>
+                    </div>
+                  </td>
+                  {viewMode === "week" ? (
+                    orderedWeekDates.map((date, i) => {
+                      const dayEvents = getEventsForDate(date);
+                      const isToday = isSameDay(date, today);
+                      return (
+                        <td
+                          key={i}
+                          className={cn(
+                            "px-3 py-3 border-r last:border-r-0 align-top",
+                            isToday && "bg-blue-50/50"
+                          )}
+                        >
+                          <div className="space-y-2 min-h-[60px]">
+                            {dayEvents.map((event) => renderEventCard(event))}
+                          </div>
+                        </td>
+                      );
+                    })
+                  ) : (
+                    <td
+                      className={cn(
+                        "px-4 py-3 border-r align-top",
+                        isSameDay(currentDate, today) && "bg-blue-50/50"
+                      )}
+                    >
+                      <div className="space-y-2 min-h-[60px]">
+                        {getEventsForDate(currentDate).map((event) => renderEventCard(event))}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              )}
+
               {/* Open Shifts Row */}
               <tr className="border-b bg-green-50/50">
                 <td className="px-4 py-4 border-r bg-green-50 sticky left-0 z-10">
@@ -470,8 +632,11 @@ export function ScheduleGrid({
                     const isToday = isSameDay(date, today);
 
                     const cellContent = (
-                      <div className="space-y-2 min-h-[100px]">
-                        {openShifts.map((shift) => renderShiftCard(shift))}
+                      <div className="relative group min-h-[100px]">
+                        <div className="space-y-2">
+                          {openShifts.map((shift) => renderShiftCard(shift))}
+                        </div>
+                        {isManager && <AddShiftHint />}
                       </div>
                     );
 
@@ -496,7 +661,7 @@ export function ScheduleGrid({
                         className={cn(
                           "px-3 py-3 border-r last:border-r-0 align-top",
                           isToday && "bg-blue-50/50",
-                          isManager && "cursor-pointer hover:bg-green-100/50"
+                          isManager && "cursor-pointer"
                         )}
                         onClick={() => handleCellClick(date, null)}
                       >
@@ -511,8 +676,11 @@ export function ScheduleGrid({
                     const isToday = isSameDay(currentDate, today);
 
                     const cellContent = (
-                      <div className="space-y-2 min-h-[100px]">
-                        {openShifts.map((shift) => renderShiftCard(shift))}
+                      <div className="relative group min-h-[100px]">
+                        <div className="space-y-2">
+                          {openShifts.map((shift) => renderShiftCard(shift))}
+                        </div>
+                        {isManager && <AddShiftHint />}
                       </div>
                     );
 
@@ -535,7 +703,7 @@ export function ScheduleGrid({
                         className={cn(
                           "px-4 py-3 border-r align-top",
                           isToday && "bg-blue-50/50",
-                          isManager && "cursor-pointer hover:bg-green-100/50"
+                          isManager && "cursor-pointer"
                         )}
                         onClick={() => handleCellClick(currentDate, null)}
                       >
@@ -581,22 +749,25 @@ export function ScheduleGrid({
                         const holiday = getUserHolidayForDate(user.id, date);
 
                         const cellContent = (
-                          <div className="space-y-2 min-h-[100px]">
-                            {holiday && (
-                              <div className="w-full text-left px-3 py-2 rounded-md text-sm font-medium bg-purple-500 text-white shadow-md">
-                                <div className="font-bold">Holiday</div>
-                                <div className="text-xs opacity-80 mt-0.5">
-                                  {holiday.hours}h off
+                          <div className="relative group min-h-[100px]">
+                            <div className="space-y-2">
+                              {holiday && (
+                                <div className="w-full text-left px-3 py-2 rounded-md text-sm font-medium bg-purple-500 text-white shadow-md">
+                                  <div className="font-bold">Holiday</div>
+                                  <div className="text-xs opacity-80 mt-0.5">
+                                    {holiday.hours}h off
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                            {userShifts.length > 0 ? (
-                              userShifts.map((shift) => renderShiftCard(shift))
-                            ) : !holiday && hasNoAvailability ? (
-                              <div className="text-xs text-gray-400 uppercase font-medium py-4 text-center">
-                                Unavailable
-                              </div>
-                            ) : null}
+                              )}
+                              {userShifts.length > 0 ? (
+                                userShifts.map((shift) => renderShiftCard(shift))
+                              ) : !holiday && hasNoAvailability ? (
+                                <div className="text-xs text-gray-400 uppercase font-medium py-4 text-center">
+                                  Unavailable
+                                </div>
+                              ) : null}
+                            </div>
+                            {isManager && <AddShiftHint />}
                           </div>
                         );
 
@@ -623,7 +794,7 @@ export function ScheduleGrid({
                               "px-3 py-3 border-r last:border-r-0 align-top transition-colors",
                               isToday && "bg-blue-50/50",
                               hasNoAvailability && "bg-gray-100",
-                              isManager && "cursor-pointer hover:bg-gray-50"
+                              isManager && "cursor-pointer"
                             )}
                             onClick={() => handleCellClick(date, user.id)}
                           >
@@ -641,22 +812,25 @@ export function ScheduleGrid({
                         const holiday = getUserHolidayForDate(user.id, currentDate);
 
                         const cellContent = (
-                          <div className="space-y-2 min-h-[100px]">
-                            {holiday && (
-                              <div className="w-full text-left px-3 py-2 rounded-md text-sm font-medium bg-purple-500 text-white shadow-md">
-                                <div className="font-bold">Holiday</div>
-                                <div className="text-xs opacity-80 mt-0.5">
-                                  {holiday.hours}h off
+                          <div className="relative group min-h-[100px]">
+                            <div className="space-y-2">
+                              {holiday && (
+                                <div className="w-full text-left px-3 py-2 rounded-md text-sm font-medium bg-purple-500 text-white shadow-md">
+                                  <div className="font-bold">Holiday</div>
+                                  <div className="text-xs opacity-80 mt-0.5">
+                                    {holiday.hours}h off
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                            {userShifts.length > 0 ? (
-                              userShifts.map((shift) => renderShiftCard(shift))
-                            ) : !holiday && hasNoAvailability ? (
-                              <div className="text-xs text-gray-400 uppercase font-medium py-4 text-center">
-                                Unavailable
-                              </div>
-                            ) : null}
+                              )}
+                              {userShifts.length > 0 ? (
+                                userShifts.map((shift) => renderShiftCard(shift))
+                              ) : !holiday && hasNoAvailability ? (
+                                <div className="text-xs text-gray-400 uppercase font-medium py-4 text-center">
+                                  Unavailable
+                                </div>
+                              ) : null}
+                            </div>
+                            {isManager && <AddShiftHint />}
                           </div>
                         );
 
@@ -681,7 +855,7 @@ export function ScheduleGrid({
                               "px-4 py-3 border-r align-top transition-colors",
                               isToday && "bg-blue-50/50",
                               hasNoAvailability && "bg-gray-100",
-                              isManager && "cursor-pointer hover:bg-gray-50"
+                              isManager && "cursor-pointer"
                             )}
                             onClick={() => handleCellClick(currentDate, user.id)}
                           >
@@ -708,6 +882,16 @@ export function ScheduleGrid({
           categories={categories}
           locations={locations}
           onClose={() => setSelectedShift(null)}
+        />
+      )}
+
+      {/* Event Detail Dialog */}
+      {selectedEvent && (
+        <EventDetailDialog
+          event={selectedEvent}
+          isManager={isManager}
+          locations={locations}
+          onClose={() => setSelectedEvent(null)}
         />
       )}
 

@@ -68,10 +68,15 @@ model Location {
   organizationId      String
   breakRules          String?
   organization        Organization     @relation(fields: [organizationId], references: [id])
+  events              Event[]
+  growthActivityLogs  GrowthActivityLog[] @relation("GrowthActivityLogs")
+  growthTargets       GrowthTarget[]      @relation("GrowthTargets")
+  growthMetrics       GrowthMetric[]      @relation("GrowthMetrics")
   staff               LocationStaff[]
   shifts              Shift[]
   primaryUsers        User[]
   maintenanceLogs     MaintenanceLog[]
+  spendRequests       SpendRequest[]
 
   @@index([organizationId])
 }
@@ -152,6 +157,11 @@ model Organization {
   announcements         Announcement[]
   certificationTypes    CertificationType[]
   complianceItems       ComplianceItem[]
+  events                Event[]
+  growthActivities      GrowthActivity[]
+  growthActivityLogs    GrowthActivityLog[]
+  growthTargets         GrowthTarget[]
+  growthMetrics         GrowthMetric[]
   locations             Location[]
   shifts                Shift[]
   shiftCategories       ShiftCategory[]
@@ -161,6 +171,7 @@ model Organization {
   users                 User[]
   maintenanceCheckTypes MaintenanceCheckType[]
   maintenanceLogs       MaintenanceLog[]
+  spendRequests         SpendRequest[]
 }
 
 model Shift {
@@ -427,6 +438,10 @@ model User {
   updatedAt         DateTime            @updatedAt
   organizationId    String
   primaryLocationId String?
+  eventsCreated     Event[]             @relation("EventsCreated")
+  growthActivitiesCompleted GrowthActivityLog[] @relation("GrowthActivitiesCompleted")
+  growthTargetsCreated      GrowthTarget[]      @relation("GrowthTargetsCreated")
+  growthMetricsRecorded     GrowthMetric[]      @relation("GrowthMetricsRecorded")
   holidayRequests   HolidayRequest[]
   locationAccess    LocationStaff[]
   messagesReceived  Message[]           @relation("Message_receiverIdToUser")
@@ -446,6 +461,8 @@ model User {
   categoryRates     UserCategoryRate[]
   complianceRecords UserCompliance[]
   maintenanceLogs   MaintenanceLog[]
+  spendRequestsCreated  SpendRequest[] @relation("SpendRequestsCreated")
+  spendRequestsReviewed SpendRequest[] @relation("SpendRequestsReviewed")
 
   @@index([email])
   @@index([organizationId])
@@ -487,6 +504,137 @@ model UserCategoryRate {
   @@unique([userId, categoryId])
   @@index([userId])
   @@index([categoryId])
+}
+
+// EVENTS SYSTEM
+// Events, group bookings, and parties for visibility on the schedule
+model Event {
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  eventType      String    // PARTY, GROUP, TRAINING, COMPETITION, OTHER
+  startTime      DateTime
+  endTime        DateTime
+  expectedGuests Int?      // Expected number of attendees
+  staffRequired  Int?      // Suggested extra staff needed
+  color          String    @default("#f59e0b") // Amber default
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  locationId     String?
+  location       Location? @relation(fields: [locationId], references: [id])
+
+  createdById    String?
+  createdBy      User?     @relation("EventsCreated", fields: [createdById], references: [id])
+
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([startTime, endTime])
+}
+
+// CENTRE GROWTH & PERFORMANCE SYSTEM
+// Track activities that drive membership, kids club, and external groups growth
+
+// Predefined activities that staff can complete to drive growth
+model GrowthActivity {
+  id             String   @id @default(cuid())
+  name           String   // "Follow up trial visitor", "Call lapsed member"
+  description    String?
+  category       String   // MEMBERSHIP, KIDS_CLUB, EXTERNAL_GROUPS
+  activityType   String   // LEAD_GEN, RETENTION, CONVERSION, OUTREACH
+  points         Int      @default(5) // Impact points for gamification
+  suggestedFreq  String   @default("WEEKLY") // DAILY, WEEKLY, MONTHLY
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  activityLogs   GrowthActivityLog[]
+
+  @@index([organizationId])
+  @@index([category])
+}
+
+// Log of completed growth activities
+model GrowthActivityLog {
+  id             String    @id @default(cuid())
+  completedAt    DateTime  @default(now())
+  notes          String?   // What happened, any details
+  outcome        String    @default("COMPLETED") // COMPLETED, SUCCESSFUL, NO_ANSWER, FOLLOW_UP_NEEDED
+  contactName    String?   // Name of person contacted (if applicable)
+  contactInfo    String?   // Email/phone (if applicable)
+  followUpDate   DateTime? // When to follow up
+  pointsEarned   Int       @default(0)
+
+  activityId     String
+  activity       GrowthActivity @relation(fields: [activityId], references: [id])
+  completedById  String
+  completedBy    User      @relation("GrowthActivitiesCompleted", fields: [completedById], references: [id])
+  locationId     String?
+  location       Location? @relation("GrowthActivityLogs", fields: [locationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([completedById])
+  @@index([activityId])
+  @@index([completedAt])
+  @@index([locationId])
+}
+
+// Weekly/monthly targets set by managers
+model GrowthTarget {
+  id             String   @id @default(cuid())
+  weekStart      DateTime // Monday of the target week
+  category       String   // MEMBERSHIP, KIDS_CLUB, EXTERNAL_GROUPS
+  activityTarget Int      // Number of activities to complete
+  metricTarget   Int?     // Target for actual number (optional)
+  notes          String?
+
+  locationId     String?
+  location       Location? @relation("GrowthTargets", fields: [locationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdById    String?
+  createdBy      User?    @relation("GrowthTargetsCreated", fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, locationId, weekStart, category])
+  @@index([organizationId])
+  @@index([weekStart])
+  @@index([locationId])
+}
+
+// Actual metric snapshots (current numbers)
+model GrowthMetric {
+  id             String   @id @default(cuid())
+  recordedAt     DateTime @default(now())
+  category       String   // MEMBERSHIP, KIDS_CLUB, EXTERNAL_GROUPS
+  metricType     String   // TOTAL, NEW_THIS_WEEK, NEW_THIS_MONTH, CHURNED
+  value          Int
+  notes          String?
+
+  locationId     String?
+  location       Location? @relation("GrowthMetrics", fields: [locationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  recordedById   String
+  recordedBy     User     @relation("GrowthMetricsRecorded", fields: [recordedById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([recordedAt])
+  @@index([category])
+  @@index([locationId])
 }
 
 // MAINTENANCE LOGGING SYSTEM
@@ -537,4 +685,41 @@ model MaintenanceLog {
   @@index([checkTypeId])
   @@index([organizationId])
   @@index([checkDate])
+}
+
+// SPEND TRACKING & APPROVAL SYSTEM
+// Managers submit spend requests for approval by admins
+model SpendRequest {
+  id             String    @id @default(cuid())
+  title          String                        // Brief description
+  description    String?                       // What it is
+  justification  String                        // Why it is needed
+  amount         Float                         // Total spend amount
+  category       String                        // EQUIPMENT, SUPPLIES, MAINTENANCE, MARKETING, TRAINING, OTHER
+  status         String    @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  // Approval tracking
+  reviewedAt     DateTime?
+  reviewedById   String?
+  reviewedBy     User?     @relation("SpendRequestsReviewed", fields: [reviewedById], references: [id])
+  reviewNotes    String?                       // Admin can add notes on approval/rejection
+
+  // Metadata
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relationships
+  requestedById  String
+  requestedBy    User      @relation("SpendRequestsCreated", fields: [requestedById], references: [id])
+
+  locationId     String?
+  location       Location? @relation(fields: [locationId], references: [id])
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([requestedById])
 }

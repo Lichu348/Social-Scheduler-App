@@ -78,6 +78,20 @@ interface Holiday {
   reason: string | null;
 }
 
+interface Event {
+  id: string;
+  title: string;
+  description: string | null;
+  eventType: string;
+  startTime: string;
+  endTime: string;
+  expectedGuests: number | null;
+  staffRequired: number | null;
+  color: string;
+  location: { id: string; name: string } | null;
+  createdBy: { id: string; name: string } | null;
+}
+
 interface ScheduleGridWithDndProps {
   shifts: Shift[];
   users: User[];
@@ -89,6 +103,7 @@ interface ScheduleGridWithDndProps {
   categories?: ShiftCategory[];
   locations?: Location[];
   holidays?: Holiday[];
+  events?: Event[];
 }
 
 export function ScheduleGridWithDnd({
@@ -102,6 +117,7 @@ export function ScheduleGridWithDnd({
   categories = [],
   locations = [],
   holidays = [],
+  events = [],
 }: ScheduleGridWithDndProps) {
   const [mounted, setMounted] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<ShiftTemplate | null>(null);
@@ -176,6 +192,7 @@ export function ScheduleGridWithDnd({
         categories={categories}
         locations={locations}
         holidays={holidays}
+        events={events}
       />
     );
   }
@@ -201,6 +218,7 @@ export function ScheduleGridWithDnd({
             categories={categories}
             locations={locations}
             holidays={holidays}
+            events={events}
           />
         </div>
       </div>
