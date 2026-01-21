@@ -14,7 +14,6 @@ const STORAGE_KEY = "sidebar-collapsed";
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsedState] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -22,23 +21,20 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     if (stored !== null) {
       setCollapsedState(stored === "true");
     }
-    setMounted(true);
   }, []);
 
   const setCollapsed = (value: boolean) => {
     setCollapsedState(value);
-    localStorage.setItem(STORAGE_KEY, String(value));
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, String(value));
+    }
   };
 
   const toggleCollapsed = () => {
     setCollapsed(!collapsed);
   };
 
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
+  // Always provide the context - use default value (false) on server
   return (
     <SidebarContext.Provider value={{ collapsed, setCollapsed, toggleCollapsed }}>
       {children}
