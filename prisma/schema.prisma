@@ -78,6 +78,7 @@ model Location {
   maintenanceLogs     MaintenanceLog[]
   spendRequests       SpendRequest[]
   cashTransactions    CashTransaction[]
+  settingSignoffs     SettingSignoff[]  @relation("SettingSignoffs")
 
   @@index([organizationId])
 }
@@ -174,6 +175,7 @@ model Organization {
   maintenanceLogs       MaintenanceLog[]
   spendRequests         SpendRequest[]
   cashTransactions      CashTransaction[]
+  settingSignoffs       SettingSignoff[]
 }
 
 model Shift {
@@ -466,6 +468,7 @@ model User {
   spendRequestsCreated  SpendRequest[] @relation("SpendRequestsCreated")
   spendRequestsReviewed SpendRequest[] @relation("SpendRequestsReviewed")
   cashTransactionsLogged CashTransaction[] @relation("CashTransactionsLogged")
+  settingSignoffs        SettingSignoff[]  @relation("SettingSignoffs")
 
   @@index([email])
   @@index([organizationId])
@@ -754,4 +757,46 @@ model CashTransaction {
   @@index([locationId])
   @@index([createdAt])
   @@index([type])
+}
+
+// SETTING SIGN-OFF SYSTEM
+// Track route setting days with sign-off checklist
+model SettingSignoff {
+  id                   String    @id @default(cuid())
+
+  // Setters
+  externalSetterName   String                        // Name of external setter
+  inHouseSetterName    String                        // Name of in-house setter
+
+  // Checklist confirmations
+  climbsTested         Boolean   @default(false)    // Climbs tested and changed where needed
+  downClimbJugsOk      Boolean   @default(false)    // Down climb jugs in appropriate areas
+  matsChecked          Boolean   @default(false)    // Mats checked for objects and hoovered
+
+  // Photos (JSON array of URLs)
+  photos               String    @default("[]")     // Array of photo URLs
+
+  // Notes
+  notes                String?                       // Anything to note from setting day
+
+  // Metadata
+  settingDate          DateTime  @default(now())    // Date of the setting
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // Who signed off
+  signedOffById        String
+  signedOffBy          User      @relation("SettingSignoffs", fields: [signedOffById], references: [id])
+
+  // Location (site)
+  locationId           String
+  location             Location  @relation("SettingSignoffs", fields: [locationId], references: [id])
+
+  organizationId       String
+  organization         Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([settingDate])
+  @@index([signedOffById])
 }

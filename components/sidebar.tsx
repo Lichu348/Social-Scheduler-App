@@ -25,6 +25,7 @@ import {
   Wallet,
   Banknote,
   Smartphone,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -48,6 +49,7 @@ const navigation = [
   { name: "Team", href: "/dashboard/team", icon: Users },
   { name: "Compliance", href: "/dashboard/compliance", icon: ShieldCheck },
   { name: "Maintenance", href: "/dashboard/maintenance", icon: Wrench },
+  { name: "Setting Sign-offs", href: "/dashboard/setting-signoffs", icon: ClipboardCheck, managerOnly: true },
   { name: "Growth", href: "/dashboard/growth", icon: TrendingUp, managerOnly: true },
   { name: "Spend", href: "/dashboard/spend", icon: Wallet, managerOnly: true },
   { name: "Cash", href: "/dashboard/cash", icon: Banknote },
