@@ -226,7 +226,10 @@ export function MobileStaffView({
             variant="ghost"
             size="sm"
             className="text-primary-foreground hover:bg-primary-foreground/20"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => {
+              document.cookie = "prefer-desktop=true; path=/; max-age=86400";
+              router.push("/dashboard");
+            }}
           >
             Full Site
           </Button>

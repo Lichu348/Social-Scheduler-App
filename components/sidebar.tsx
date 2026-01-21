@@ -24,6 +24,7 @@ import {
   TrendingUp,
   Wallet,
   Banknote,
+  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -130,6 +131,17 @@ export function Sidebar({ user }: SidebarProps) {
         >
           <LogOut className="h-4 w-4" />
           Sign out
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 mt-2 text-muted-foreground"
+          onClick={() => {
+            document.cookie = "prefer-mobile=true; path=/; max-age=86400";
+            window.location.href = "/staff";
+          }}
+        >
+          <Smartphone className="h-4 w-4" />
+          Mobile View
         </Button>
       </div>
     </div>
