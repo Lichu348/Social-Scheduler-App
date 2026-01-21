@@ -127,9 +127,8 @@ export function Sidebar({ user }: SidebarProps) {
           const isActive = pathname === item.href ||
             (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
-          const linkContent = (
+          const linkElement = (
             <Link
-              key={item.name}
               href={item.href}
               className={cn(
                 "flex items-center rounded-lg py-2 text-sm font-medium transition-colors",
@@ -147,12 +146,16 @@ export function Sidebar({ user }: SidebarProps) {
           if (collapsed) {
             return (
               <Tooltip key={item.name} content={item.name} side="right">
-                {linkContent}
+                {linkElement}
               </Tooltip>
             );
           }
 
-          return linkContent;
+          return (
+            <div key={item.name}>
+              {linkElement}
+            </div>
+          );
         })}
       </nav>
 
