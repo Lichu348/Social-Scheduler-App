@@ -74,6 +74,7 @@ model Location {
   growthMetrics       GrowthMetric[]      @relation("GrowthMetrics")
   staff               LocationStaff[]
   shifts              Shift[]
+  shiftTemplates      ShiftTemplate[]
   primaryUsers        User[]
   maintenanceLogs     MaintenanceLog[]
   spendRequests       SpendRequest[]
@@ -242,12 +243,15 @@ model ShiftTemplate {
   updatedAt      DateTime       @updatedAt
   organizationId String
   categoryId     String?
+  locationId     String?
   shifts         Shift[]
   category       ShiftCategory? @relation(fields: [categoryId], references: [id])
   organization   Organization   @relation(fields: [organizationId], references: [id])
+  location       Location?      @relation(fields: [locationId], references: [id])
 
   @@index([categoryId])
   @@index([organizationId])
+  @@index([locationId])
 }
 
 model StaffAvailability {

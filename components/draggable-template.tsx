@@ -2,8 +2,13 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Clock } from "lucide-react";
+import { GripVertical, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface Location {
+  id: string;
+  name: string;
+}
 
 interface ShiftCategory {
   id: string;
@@ -19,6 +24,8 @@ interface ShiftTemplate {
   endTime: string;
   defaultTitle?: string | null;
   category?: ShiftCategory | null;
+  locationId?: string | null;
+  location?: Location | null;
 }
 
 interface DraggableTemplateProps {
@@ -85,6 +92,17 @@ export function DraggableTemplate({ template, onEdit }: DraggableTemplateProps) 
             {template.category.name}
           </p>
         )}
+        {template.location ? (
+          <div className="flex items-center gap-1 text-xs mt-1" style={{ color: colors.secondary }}>
+            <MapPin className="h-3 w-3" />
+            <span>{template.location.name}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 text-xs mt-1" style={{ color: colors.secondary }}>
+            <MapPin className="h-3 w-3" />
+            <span>All Locations</span>
+          </div>
+        )}
       </div>
 
       {onEdit && (
@@ -125,6 +143,12 @@ export function DraggableTemplateOverlay({ template }: { template: ShiftTemplate
           <Clock className="h-3 w-3" />
           <span>{template.startTime} - {template.endTime}</span>
         </div>
+        {template.location && (
+          <div className="flex items-center gap-1 text-xs mt-0.5" style={{ color: colors.secondary }}>
+            <MapPin className="h-3 w-3" />
+            <span>{template.location.name}</span>
+          </div>
+        )}
       </div>
     </div>
   );

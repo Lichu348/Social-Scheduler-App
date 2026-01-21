@@ -26,9 +26,13 @@ import {
   Banknote,
   Smartphone,
   ClipboardCheck,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
+import { Tooltip } from "@/components/ui/tooltip";
+import { useSidebar } from "@/components/sidebar-context";
 
 interface SidebarProps {
   user: {
@@ -63,88 +67,168 @@ const navigation = [
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
+  const { collapsed, toggleCollapsed } = useSidebar();
+
+  const filteredNavigation = navigation.filter((item) => {
+    if ('adminOnly' in item && item.adminOnly) {
+      return user.role === "ADMIN";
+    }
+    if ('managerOnly' in item && item.managerOnly) {
+      return user.role === "ADMIN" || user.role === "MANAGER";
+    }
+    return true;
+  });
 
   return (
-    <div className="flex h-screen w-64 flex-col bg-card border-r">
+    <div
+      className={cn(
+        "flex h-screen flex-col bg-card border-r transition-all duration-200",
+        collapsed ? "w-16" : "w-64"
+      )}
+    >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b px-6">
-        <div className="p-2 bg-primary rounded-lg">
+      <div className={cn(
+        "flex h-16 items-center border-b",
+        collapsed ? "justify-center px-2" : "gap-2 px-6"
+      )}>
+        <div className="p-2 bg-primary rounded-lg flex-shrink-0">
           <Clock className="h-5 w-5 text-primary-foreground" />
         </div>
-        <div>
-          <h1 className="font-bold text-lg">ShiftFlow</h1>
-          <p className="text-xs text-muted-foreground truncate max-w-[140px]">
-            {user.organizationName}
-          </p>
-        </div>
+        {!collapsed && (
+          <div className="min-w-0">
+            <h1 className="font-bold text-lg">ShiftFlow</h1>
+            <p className="text-xs text-muted-foreground truncate max-w-[140px]">
+              {user.organizationName}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Collapse Toggle */}
+      <div className={cn("flex px-2 py-2", collapsed ? "justify-center" : "justify-end")}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleCollapsed}
+          className="h-8 w-8"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto space-y-1 p-4">
-        {navigation
-          .filter((item) => {
-            if ('adminOnly' in item && item.adminOnly) {
-              return user.role === "ADMIN";
-            }
-            if ('managerOnly' in item && item.managerOnly) {
-              return user.role === "ADMIN" || user.role === "MANAGER";
-            }
-            return true;
-          })
-          .map((item) => {
-            const isActive = pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+      <nav className="flex-1 overflow-y-auto space-y-1 px-2 pb-4">
+        {filteredNavigation.map((item) => {
+          const isActive = pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(item.href));
+
+          const linkContent = (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={cn(
+                "flex items-center rounded-lg py-2 text-sm font-medium transition-colors",
+                collapsed ? "justify-center px-2" : "gap-3 px-3",
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && item.name}
+            </Link>
+          );
+
+          if (collapsed) {
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.name}
-              </Link>
+              <Tooltip key={item.name} content={item.name} side="right">
+                {linkContent}
+              </Tooltip>
             );
-          })}
+          }
+
+          return linkContent;
+        })}
       </nav>
 
       {/* User section */}
-      <div className="border-t p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <span className="text-sm font-medium text-primary">
-              {user.name?.charAt(0).toUpperCase()}
-            </span>
+      <div className={cn("border-t", collapsed ? "p-2" : "p-4")}>
+        {collapsed ? (
+          // Collapsed user section
+          <div className="flex flex-col items-center gap-2">
+            <Tooltip content={user.name || "User"} side="right">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-sm font-medium text-primary">
+                  {user.name?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            </Tooltip>
+            <NotificationBadge />
+            <Tooltip content="Sign out" side="right">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="h-9 w-9"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+            <Tooltip content="Mobile View" side="right">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground"
+                onClick={() => {
+                  document.cookie = "prefer-mobile=true; path=/; max-age=86400";
+                  window.location.href = "/staff";
+                }}
+              >
+                <Smartphone className="h-4 w-4" />
+              </Button>
+            </Tooltip>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-          </div>
-          <NotificationBadge />
-        </div>
-        <Button
-          variant="outline"
-          className="w-full justify-start gap-2"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </Button>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 mt-2 text-muted-foreground"
-          onClick={() => {
-            document.cookie = "prefer-mobile=true; path=/; max-age=86400";
-            window.location.href = "/staff";
-          }}
-        >
-          <Smartphone className="h-4 w-4" />
-          Mobile View
-        </Button>
+        ) : (
+          // Expanded user section
+          <>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-sm font-medium text-primary">
+                  {user.name?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{user.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              </div>
+              <NotificationBadge />
+            </div>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 mt-2 text-muted-foreground"
+              onClick={() => {
+                document.cookie = "prefer-mobile=true; path=/; max-age=86400";
+                window.location.href = "/staff";
+              }}
+            >
+              <Smartphone className="h-4 w-4" />
+              Mobile View
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

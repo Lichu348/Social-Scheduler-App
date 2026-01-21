@@ -2,10 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronLeft, ChevronRight, LayoutTemplate } from "lucide-react";
+import { Select } from "@/components/ui/select";
+import { Plus, ChevronLeft, ChevronRight, LayoutTemplate, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DraggableTemplate } from "./draggable-template";
 import { CreateTemplateDialog } from "./create-template-dialog";
+
+interface Location {
+  id: string;
+  name: string;
+}
 
 interface ShiftCategory {
   id: string;
@@ -23,22 +29,37 @@ interface ShiftTemplate {
   description?: string | null;
   categoryId?: string | null;
   category?: ShiftCategory | null;
+  locationId?: string | null;
+  location?: Location | null;
 }
 
 interface ShiftTemplateSidebarProps {
   className?: string;
+  selectedLocationId?: string | null;
 }
 
-export function ShiftTemplateSidebar({ className }: ShiftTemplateSidebarProps) {
+export function ShiftTemplateSidebar({ className, selectedLocationId }: ShiftTemplateSidebarProps) {
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
+  const [filterLocationId, setFilterLocationId] = useState<string>("");
+
+  // Sync filter with selected location from parent
+  useEffect(() => {
+    if (selectedLocationId) {
+      setFilterLocationId(selectedLocationId);
+    }
+  }, [selectedLocationId]);
 
   const fetchTemplates = async () => {
     try {
-      const res = await fetch("/api/shift-templates?activeOnly=true");
+      const url = filterLocationId
+        ? `/api/shift-templates?activeOnly=true&locationId=${filterLocationId}`
+        : "/api/shift-templates?activeOnly=true";
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setTemplates(data);
@@ -50,9 +71,25 @@ export function ShiftTemplateSidebar({ className }: ShiftTemplateSidebarProps) {
     }
   };
 
+  const fetchLocations = async () => {
+    try {
+      const res = await fetch("/api/locations?activeOnly=true");
+      if (res.ok) {
+        const data = await res.json();
+        setLocations(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch locations:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchLocations();
+  }, []);
+
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [filterLocationId]);
 
   const handleEdit = (template: ShiftTemplate) => {
     setEditingTemplate(template);
@@ -70,6 +107,14 @@ export function ShiftTemplateSidebar({ className }: ShiftTemplateSidebarProps) {
     fetchTemplates();
     setEditingTemplate(null);
   };
+
+  const locationOptions = [
+    { value: "", label: "All Locations" },
+    ...locations.map((loc) => ({
+      value: loc.id,
+      label: loc.name,
+    })),
+  ];
 
   if (collapsed) {
     return (
@@ -105,6 +150,18 @@ export function ShiftTemplateSidebar({ className }: ShiftTemplateSidebarProps) {
           <ChevronLeft className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Location Filter */}
+      {locations.length > 0 && (
+        <div className="px-3 pt-3">
+          <Select
+            options={locationOptions}
+            value={filterLocationId}
+            onChange={(e) => setFilterLocationId(e.target.value)}
+            className="text-xs"
+          />
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {loading ? (
@@ -149,6 +206,8 @@ export function ShiftTemplateSidebar({ className }: ShiftTemplateSidebarProps) {
         onOpenChange={handleDialogClose}
         template={editingTemplate}
         onSuccess={handleSuccess}
+        locations={locations}
+        defaultLocationId={filterLocationId}
       />
     </div>
   );

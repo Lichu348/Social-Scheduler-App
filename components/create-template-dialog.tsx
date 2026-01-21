@@ -15,6 +15,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+interface Location {
+  id: string;
+  name: string;
+}
+
 interface ShiftCategory {
   id: string;
   name: string;
@@ -31,6 +36,8 @@ interface ShiftTemplate {
   description?: string | null;
   categoryId?: string | null;
   category?: ShiftCategory | null;
+  locationId?: string | null;
+  location?: Location | null;
 }
 
 interface CreateTemplateDialogProps {
@@ -38,6 +45,8 @@ interface CreateTemplateDialogProps {
   onOpenChange: (open: boolean) => void;
   template?: ShiftTemplate | null;
   onSuccess?: () => void;
+  locations?: Location[];
+  defaultLocationId?: string;
 }
 
 export function CreateTemplateDialog({
@@ -45,6 +54,8 @@ export function CreateTemplateDialog({
   onOpenChange,
   template,
   onSuccess,
+  locations = [],
+  defaultLocationId = "",
 }: CreateTemplateDialogProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -56,6 +67,7 @@ export function CreateTemplateDialog({
     endTime: "",
     defaultTitle: "",
     categoryId: "",
+    locationId: "",
   });
 
   const isEditing = !!template;
@@ -86,6 +98,7 @@ export function CreateTemplateDialog({
           endTime: template.endTime,
           defaultTitle: template.defaultTitle || "",
           categoryId: template.categoryId || "",
+          locationId: template.locationId || "",
         });
       } else {
         setFormData({
@@ -94,11 +107,12 @@ export function CreateTemplateDialog({
           endTime: "17:00",
           defaultTitle: "",
           categoryId: "",
+          locationId: defaultLocationId,
         });
       }
       setError(null);
     }
-  }, [open, template]);
+  }, [open, template, defaultLocationId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,6 +134,7 @@ export function CreateTemplateDialog({
           endTime: formData.endTime,
           defaultTitle: formData.defaultTitle || null,
           categoryId: formData.categoryId || null,
+          locationId: formData.locationId || null,
         }),
       });
 
@@ -171,6 +186,14 @@ export function CreateTemplateDialog({
     ...categories.map((cat) => ({
       value: cat.id,
       label: `${cat.name} ($${cat.hourlyRate.toFixed(2)}/hr)`,
+    })),
+  ];
+
+  const locationOptions = [
+    { value: "", label: "All Locations" },
+    ...locations.map((loc) => ({
+      value: loc.id,
+      label: loc.name,
     })),
   ];
 
@@ -246,6 +269,23 @@ export function CreateTemplateDialog({
                 }
               />
             </div>
+
+            {locations.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Select
+                  id="location"
+                  options={locationOptions}
+                  value={formData.locationId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, locationId: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave as &quot;All Locations&quot; to use this template everywhere
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="defaultTitle">Default Shift Title (optional)</Label>

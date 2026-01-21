@@ -5,11 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { HolidayRequestForm } from "@/components/holiday-request-form";
 import { HolidayActions } from "@/components/holiday-actions";
+import { cn } from "@/lib/utils";
+import { Users } from "lucide-react";
 
 async function getHolidayData(userId: string, organizationId: string, role: string) {
   const isManager = role === "MANAGER" || role === "ADMIN";
 
-  const [requests, user] = await Promise.all([
+  const [requests, user, teamUsers, teamHolidayRequests] = await Promise.all([
     prisma.holidayRequest.findMany({
       where: isManager
         ? { user: { organizationId } }
@@ -25,16 +27,65 @@ async function getHolidayData(userId: string, organizationId: string, role: stri
       where: { id: userId },
       select: { holidayBalance: true },
     }),
+    // Get all team members for summary (managers only)
+    isManager
+      ? prisma.user.findMany({
+          where: { organizationId },
+          select: { id: true, name: true, holidayBalance: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    // Get approved holiday hours per user for the current year (managers only)
+    isManager
+      ? prisma.holidayRequest.groupBy({
+          by: ["userId"],
+          where: {
+            user: { organizationId },
+            status: "APPROVED",
+            startDate: {
+              gte: new Date(new Date().getFullYear(), 0, 1),
+            },
+          },
+          _sum: {
+            hours: true,
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
-  return { requests, holidayBalance: user?.holidayBalance || 0 };
+  // Create a map of used hours per user
+  const usedHoursMap = new Map<string, number>();
+  teamHolidayRequests.forEach((req) => {
+    usedHoursMap.set(req.userId, req._sum.hours || 0);
+  });
+
+  return { requests, holidayBalance: user?.holidayBalance || 0, teamUsers, usedHoursMap };
+}
+
+function getHolidayStatus(balance: number, usedHours: number) {
+  const totalAllowance = balance + usedHours;
+  if (totalAllowance === 0) {
+    return { color: "text-muted-foreground", bgColor: "bg-muted", label: "N/A" };
+  }
+
+  const remainingPercent = (balance / totalAllowance) * 100;
+
+  if (balance <= 0) {
+    return { color: "text-red-600", bgColor: "bg-red-50", label: "Exhausted" };
+  } else if (remainingPercent <= 20) {
+    return { color: "text-red-600", bgColor: "bg-red-50", label: "Low" };
+  } else if (remainingPercent <= 40) {
+    return { color: "text-amber-600", bgColor: "bg-amber-50", label: "Moderate" };
+  } else {
+    return { color: "text-green-600", bgColor: "bg-green-50", label: "Good" };
+  }
 }
 
 export default async function HolidaysPage() {
   const session = await auth();
   if (!session?.user) return null;
 
-  const { requests, holidayBalance } = await getHolidayData(
+  const { requests, holidayBalance, teamUsers, usedHoursMap } = await getHolidayData(
     session.user.id,
     session.user.organizationId,
     session.user.role
@@ -104,6 +155,59 @@ export default async function HolidaysPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Team Holiday Summary - Managers Only */}
+      {isManager && teamUsers.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              <CardTitle>Team Holiday Allowances</CardTitle>
+            </div>
+            <CardDescription>Quick view of team member holiday balances</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {teamUsers.map((user) => {
+                const userUsedHours = usedHoursMap.get(user.id) || 0;
+                const status = getHolidayStatus(user.holidayBalance, userUsedHours);
+
+                return (
+                  <div
+                    key={user.id}
+                    className={cn(
+                      "p-3 rounded-lg border",
+                      status.bgColor
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium text-sm truncate">{user.name}</p>
+                      <span className={cn(
+                        "text-xs font-medium px-2 py-0.5 rounded",
+                        status.bgColor,
+                        status.color
+                      )}>
+                        {status.label}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-1">
+                      <span className={cn("text-2xl font-bold", status.color)}>
+                        {user.holidayBalance}h
+                      </span>
+                      <span className="text-xs text-muted-foreground">remaining</span>
+                    </div>
+                    {userUsedHours > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {userUsedHours}h used this year
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Request Form - shown to everyone */}

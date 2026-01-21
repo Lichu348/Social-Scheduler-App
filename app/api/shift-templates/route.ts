@@ -11,11 +11,14 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const activeOnly = searchParams.get("activeOnly") === "true";
+    const locationId = searchParams.get("locationId");
 
     const templates = await prisma.shiftTemplate.findMany({
       where: {
         organizationId: session.user.organizationId,
         ...(activeOnly ? { isActive: true } : {}),
+        // If locationId is provided, show templates for that location OR templates with no location (global)
+        ...(locationId ? { OR: [{ locationId }, { locationId: null }] } : {}),
       },
       include: {
         category: {
@@ -24,6 +27,12 @@ export async function GET(req: Request) {
             name: true,
             hourlyRate: true,
             color: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
@@ -56,7 +65,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No organization found" }, { status: 400 });
     }
 
-    const { name, startTime, endTime, categoryId, defaultTitle, description } =
+    const { name, startTime, endTime, categoryId, defaultTitle, description, locationId } =
       await req.json();
 
     if (!name || !startTime || !endTime) {
@@ -91,6 +100,22 @@ export async function POST(req: Request) {
       }
     }
 
+    // If locationId provided, verify it belongs to the organization
+    if (locationId) {
+      const location = await prisma.location.findFirst({
+        where: {
+          id: locationId,
+          organizationId: session.user.organizationId,
+        },
+      });
+      if (!location) {
+        return NextResponse.json(
+          { error: "Invalid location" },
+          { status: 400 }
+        );
+      }
+    }
+
     const template = await prisma.shiftTemplate.create({
       data: {
         name,
@@ -99,6 +124,7 @@ export async function POST(req: Request) {
         defaultTitle: defaultTitle || null,
         description: description || null,
         categoryId: categoryId || null,
+        locationId: locationId || null,
         organizationId: session.user.organizationId,
       },
       include: {
@@ -108,6 +134,12 @@ export async function POST(req: Request) {
             name: true,
             hourlyRate: true,
             color: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },

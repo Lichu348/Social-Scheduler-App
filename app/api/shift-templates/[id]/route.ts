@@ -28,6 +28,12 @@ export async function GET(
             color: true,
           },
         },
+        location: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -80,7 +86,7 @@ export async function PATCH(
       );
     }
 
-    const { name, startTime, endTime, categoryId, defaultTitle, description, isActive } =
+    const { name, startTime, endTime, categoryId, defaultTitle, description, isActive, locationId } =
       await req.json();
 
     // Validate time format if provided
@@ -114,6 +120,22 @@ export async function PATCH(
       }
     }
 
+    // If locationId provided (not empty string), verify it belongs to the organization
+    if (locationId) {
+      const location = await prisma.location.findFirst({
+        where: {
+          id: locationId,
+          organizationId: session.user.organizationId,
+        },
+      });
+      if (!location) {
+        return NextResponse.json(
+          { error: "Invalid location" },
+          { status: 400 }
+        );
+      }
+    }
+
     const template = await prisma.shiftTemplate.update({
       where: { id },
       data: {
@@ -124,6 +146,7 @@ export async function PATCH(
         ...(defaultTitle !== undefined && { defaultTitle: defaultTitle || null }),
         ...(description !== undefined && { description: description || null }),
         ...(isActive !== undefined && { isActive }),
+        ...(locationId !== undefined && { locationId: locationId || null }),
       },
       include: {
         category: {
@@ -132,6 +155,12 @@ export async function PATCH(
             name: true,
             hourlyRate: true,
             color: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
