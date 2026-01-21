@@ -77,6 +77,7 @@ model Location {
   primaryUsers        User[]
   maintenanceLogs     MaintenanceLog[]
   spendRequests       SpendRequest[]
+  cashTransactions    CashTransaction[]
 
   @@index([organizationId])
 }
@@ -172,6 +173,7 @@ model Organization {
   maintenanceCheckTypes MaintenanceCheckType[]
   maintenanceLogs       MaintenanceLog[]
   spendRequests         SpendRequest[]
+  cashTransactions      CashTransaction[]
 }
 
 model Shift {
@@ -463,6 +465,7 @@ model User {
   maintenanceLogs   MaintenanceLog[]
   spendRequestsCreated  SpendRequest[] @relation("SpendRequestsCreated")
   spendRequestsReviewed SpendRequest[] @relation("SpendRequestsReviewed")
+  cashTransactionsLogged CashTransaction[] @relation("CashTransactionsLogged")
 
   @@index([email])
   @@index([organizationId])
@@ -722,4 +725,33 @@ model SpendRequest {
   @@index([status])
   @@index([createdAt])
   @@index([requestedById])
+}
+
+// CASH MANAGEMENT SYSTEM
+// Track cash in the building with a running total
+model CashTransaction {
+  id             String    @id @default(cuid())
+  type           String                        // TAKING, BANKING, PURCHASE, ADJUSTMENT
+  amount         Float                         // Positive for IN, negative for OUT
+  notes          String?                       // Reason for the transaction
+
+  // Metadata
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Who logged it
+  loggedById     String
+  loggedBy       User      @relation("CashTransactionsLogged", fields: [loggedById], references: [id])
+
+  // Optional location
+  locationId     String?
+  location       Location? @relation(fields: [locationId], references: [id])
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([createdAt])
+  @@index([type])
 }
