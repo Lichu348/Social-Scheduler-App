@@ -1,22 +1,25 @@
 /**
- * UK Payroll Calculations for 2024/25 Tax Year
+ * UK Payroll Calculations for 2025/26 Tax Year (April 2025 - April 2026)
  *
- * NI Thresholds (weekly):
- * - Employee NI: 8% on earnings £242-£967/week, 2% above £967/week
- * - Employer NI: 13.8% on earnings above £175/week
+ * NI Thresholds (monthly):
+ * - Employee Primary Threshold (PT): £1,048/month - NI starts
+ * - Upper Earnings Limit (UEL): £4,189/month - 8% rate stops
+ * - Employee NI: 8% on earnings £1,048-£4,189/month, 2% above £4,189/month
+ * - Employer Secondary Threshold (ST): £417/month
+ * - Employer NI: 15% on earnings above £417/month
  *
  * Holiday Accrual: 12.07% for HOURLY staff only
  */
 
-// Weekly thresholds converted to monthly (multiply by 52/12)
-const EMPLOYEE_NI_LOWER_THRESHOLD_MONTHLY = 242 * (52 / 12); // ~£1,048.67
-const EMPLOYEE_NI_UPPER_THRESHOLD_MONTHLY = 967 * (52 / 12); // ~£4,189.67
-const EMPLOYER_NI_THRESHOLD_MONTHLY = 175 * (52 / 12); // ~£758.33
+// Monthly thresholds for 2025/26 tax year
+const EMPLOYEE_NI_LOWER_THRESHOLD_MONTHLY = 1048; // Primary Threshold (PT)
+const EMPLOYEE_NI_UPPER_THRESHOLD_MONTHLY = 4189; // Upper Earnings Limit (UEL)
+const EMPLOYER_NI_THRESHOLD_MONTHLY = 417; // Secondary Threshold (ST)
 
-// NI Rates
+// NI Rates for 2025/26
 const EMPLOYEE_NI_MAIN_RATE = 0.08; // 8%
 const EMPLOYEE_NI_ADDITIONAL_RATE = 0.02; // 2%
-const EMPLOYER_NI_RATE = 0.138; // 13.8%
+const EMPLOYER_NI_RATE = 0.15; // 15%
 
 // Holiday Accrual
 const HOLIDAY_ACCRUAL_RATE = 0.1207; // 12.07%
