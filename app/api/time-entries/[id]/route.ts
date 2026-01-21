@@ -18,7 +18,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const { status, clockIn, clockOut, notes } = await req.json();
+    const { status, clockIn, clockOut, notes, approveClockIn, rejectClockIn } = await req.json();
 
     const entry = await prisma.timeEntry.findUnique({
       where: { id },
@@ -35,6 +35,9 @@ export async function PATCH(
       clockIn?: Date;
       clockOut?: Date | null;
       notes?: string | null;
+      clockInApproved?: boolean;
+      clockInApprovedBy?: string;
+      clockInApprovedAt?: Date;
     } = {};
 
     if (status !== undefined) {
@@ -48,6 +51,31 @@ export async function PATCH(
     }
     if (notes !== undefined) {
       updateData.notes = notes;
+    }
+
+    // Handle clock-in approval
+    if (approveClockIn) {
+      updateData.clockInApproved = true;
+      updateData.clockInApprovedBy = session.user.id;
+      updateData.clockInApprovedAt = new Date();
+    }
+
+    // Handle clock-in rejection (delete the entry)
+    if (rejectClockIn) {
+      await prisma.timeEntry.delete({ where: { id } });
+
+      // Notify the user
+      await prisma.notification.create({
+        data: {
+          userId: entry.userId,
+          type: "CLOCKIN_REJECTED",
+          title: "Clock-in Rejected",
+          message: `Your ${entry.clockInFlag?.toLowerCase()} clock-in was rejected by a manager`,
+          link: "/dashboard/timesheet",
+        },
+      });
+
+      return NextResponse.json({ success: true, deleted: true });
     }
 
     const updatedEntry = await prisma.timeEntry.update({
@@ -71,6 +99,19 @@ export async function PATCH(
           type: status === "APPROVED" ? "TIMESHEET_APPROVED" : "TIMESHEET_REJECTED",
           title: status === "APPROVED" ? "Timesheet Approved" : "Timesheet Rejected",
           message: `Your time entry has been ${status.toLowerCase()}`,
+          link: "/dashboard/timesheet",
+        },
+      });
+    }
+
+    // Notify user if their early/late clock-in was approved
+    if (approveClockIn && entry.clockInFlag) {
+      await prisma.notification.create({
+        data: {
+          userId: entry.userId,
+          type: "CLOCKIN_APPROVED",
+          title: "Clock-in Approved",
+          message: `Your ${entry.clockInFlag.toLowerCase()} clock-in has been approved`,
           link: "/dashboard/timesheet",
         },
       });

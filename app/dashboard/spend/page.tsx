@@ -2,12 +2,14 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDate } from "@/lib/utils";
 import { CreateSpendDialog } from "@/components/create-spend-dialog";
 import { ReviewSpendDialog } from "@/components/review-spend-dialog";
 import { SpendSummary } from "@/components/spend-summary";
 import { SpendActions } from "@/components/spend-actions";
 import { SpendFilters } from "@/components/spend-filters";
+import { SpendAnalytics } from "@/components/spend-analytics";
 import {
   Wrench,
   Package,
@@ -163,6 +165,85 @@ async function getSpendData(
   return { requests, locations, summary };
 }
 
+async function getSpendAnalytics(organizationId: string) {
+  const now = new Date();
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+  // Get all approved spend requests for the last 6 months
+  const approvedRequests = await prisma.spendRequest.findMany({
+    where: {
+      organizationId,
+      status: "APPROVED",
+      createdAt: { gte: sixMonthsAgo },
+    },
+    select: {
+      amount: true,
+      category: true,
+      createdAt: true,
+    },
+  });
+
+  // Group by month and category
+  const monthlyData: Record<string, Record<string, number>> = {};
+  const categories = ["EQUIPMENT", "SUPPLIES", "MAINTENANCE", "MARKETING", "TRAINING", "OTHER"];
+
+  // Initialize last 6 months
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthKey = date.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+    monthlyData[monthKey] = {};
+    categories.forEach((cat) => {
+      monthlyData[monthKey][cat] = 0;
+    });
+  }
+
+  // Fill in the data
+  approvedRequests.forEach((request) => {
+    const date = new Date(request.createdAt);
+    const monthKey = date.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+    if (monthlyData[monthKey]) {
+      monthlyData[monthKey][request.category] =
+        (monthlyData[monthKey][request.category] || 0) + request.amount;
+    }
+  });
+
+  // Convert to array format for recharts
+  const chartData = Object.entries(monthlyData).map(([month, data]) => ({
+    month,
+    EQUIPMENT: data.EQUIPMENT || 0,
+    SUPPLIES: data.SUPPLIES || 0,
+    MAINTENANCE: data.MAINTENANCE || 0,
+    MARKETING: data.MARKETING || 0,
+    TRAINING: data.TRAINING || 0,
+    OTHER: data.OTHER || 0,
+    total: Object.values(data).reduce((sum, val) => sum + val, 0),
+  }));
+
+  // Get current month's breakdown
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const currentMonthRequests = approvedRequests.filter(
+    (r) => new Date(r.createdAt) >= currentMonthStart
+  );
+
+  const categoryTotals = categories.map((category) => ({
+    name: categoryLabels[category],
+    value: currentMonthRequests
+      .filter((r) => r.category === category)
+      .reduce((sum, r) => sum + r.amount, 0),
+    color:
+      category === "EQUIPMENT" ? "#3b82f6" :
+      category === "SUPPLIES" ? "#22c55e" :
+      category === "MAINTENANCE" ? "#f59e0b" :
+      category === "MARKETING" ? "#8b5cf6" :
+      category === "TRAINING" ? "#ec4899" :
+      "#6b7280",
+  })).filter((cat) => cat.value > 0);
+
+  const currentMonthLabel = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+  return { chartData, categoryTotals, currentMonthLabel };
+}
+
 function getStatusBadge(status: string) {
   switch (status) {
     case "PENDING":
@@ -206,14 +287,17 @@ export default async function SpendPage({
     );
   }
 
-  const { requests, locations, summary } = await getSpendData(
-    session.user.id,
-    session.user.organizationId,
-    session.user.role,
-    params.month,
-    params.status,
-    params.locationId
-  );
+  const [{ requests, locations, summary }, analytics] = await Promise.all([
+    getSpendData(
+      session.user.id,
+      session.user.organizationId,
+      session.user.role,
+      params.month,
+      params.status,
+      params.locationId
+    ),
+    isAdmin ? getSpendAnalytics(session.user.organizationId) : null,
+  ]);
 
   const pendingRequests = requests.filter((r) => r.status === "PENDING");
   const otherRequests = requests.filter((r) => r.status !== "PENDING");
@@ -232,8 +316,26 @@ export default async function SpendPage({
         <CreateSpendDialog locations={locations} />
       </div>
 
-      {/* Summary Cards - Admin Only */}
-      {isAdmin && summary && <SpendSummary summary={summary} />}
+      {isAdmin ? (
+        <Tabs defaultValue="requests">
+          <TabsList className="mb-6">
+            <TabsTrigger value="requests">Requests</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="analytics">
+            {analytics && (
+              <SpendAnalytics
+                monthlyData={analytics.chartData}
+                categoryTotals={analytics.categoryTotals}
+                currentMonth={analytics.currentMonthLabel}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="requests">
+            {/* Summary Cards - Admin Only */}
+            {summary && <SpendSummary summary={summary} />}
 
       {/* Filters */}
       <SpendFilters
@@ -370,6 +472,121 @@ export default async function SpendPage({
           )}
         </CardContent>
       </Card>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <>
+          {/* Filters */}
+          <SpendFilters
+            locations={locations}
+            currentMonth={params.month}
+            currentStatus={params.status}
+            currentLocationId={params.locationId}
+          />
+
+          {/* Pending Requests (Manager view) */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Your Pending Requests</CardTitle>
+              <CardDescription>
+                Requests waiting for admin approval
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {pendingRequests.length > 0 ? (
+                <div className="space-y-4">
+                  {pendingRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex items-start justify-between p-4 rounded-lg border"
+                    >
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-md bg-muted">
+                            {categoryIcons[request.category]}
+                          </div>
+                          <span className="font-medium">{request.title}</span>
+                          {getStatusBadge(request.status)}
+                          <Badge variant="outline">{categoryLabels[request.category]}</Badge>
+                        </div>
+                        <p className="text-2xl font-bold text-primary">
+                          {formatCurrency(request.amount)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(request.createdAt)}
+                          {request.location && ` - ${request.location.name}`}
+                        </p>
+                      </div>
+                      <SpendActions
+                        requestId={request.id}
+                        isOwner={request.requestedBy.id === session.user.id}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  No pending requests
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Request History (Manager view) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Request History</CardTitle>
+              <CardDescription>Your approved and rejected requests</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {otherRequests.length > 0 ? (
+                <div className="space-y-4">
+                  {otherRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex items-start justify-between p-4 rounded-lg border"
+                    >
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-md bg-muted">
+                            {categoryIcons[request.category]}
+                          </div>
+                          <span className="font-medium">{request.title}</span>
+                          {getStatusBadge(request.status)}
+                          <Badge variant="outline">{categoryLabels[request.category]}</Badge>
+                        </div>
+                        <p className="text-2xl font-bold text-primary">
+                          {formatCurrency(request.amount)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(request.createdAt)}
+                          {request.location && ` - ${request.location.name}`}
+                        </p>
+                        {request.reviewedBy && (
+                          <p className="text-sm text-muted-foreground">
+                            {request.status === "APPROVED" ? "Approved" : "Rejected"} by{" "}
+                            {request.reviewedBy.name}
+                            {request.reviewedAt && ` on ${formatDate(request.reviewedAt)}`}
+                          </p>
+                        )}
+                        {request.reviewNotes && (
+                          <p className="text-sm text-muted-foreground italic">
+                            Notes: {request.reviewNotes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  No request history
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

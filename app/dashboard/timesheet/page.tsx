@@ -32,7 +32,7 @@ async function getTimeEntries(userId: string, organizationId: string, role: stri
         select: { id: true, name: true, email: true },
       },
       shift: {
-        select: { id: true, title: true },
+        select: { id: true, title: true, startTime: true },
       },
     },
     orderBy: { clockIn: "desc" },
@@ -102,6 +102,7 @@ export default async function TimesheetPage() {
   const pendingEntries = entries.filter((e) => e.status === "PENDING" && e.clockOut);
   const approvedEntries = entries.filter((e) => e.status === "APPROVED");
   const activeEntries = entries.filter((e) => !e.clockOut);
+  const flaggedClockIns = entries.filter((e) => e.clockInFlag && !e.clockInApproved);
 
   const getStatusBadge = (status: string, clockOut: Date | null) => {
     if (!clockOut) {
@@ -198,7 +199,7 @@ export default async function TimesheetPage() {
           <CardDescription>Your time tracking overview</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <div className="text-center p-4 rounded-lg bg-muted/50">
               <p className="text-3xl font-bold">{weeklyTotal.toFixed(2)}</p>
               <p className="text-sm text-muted-foreground">Total Hours (Recent)</p>
@@ -211,6 +212,12 @@ export default async function TimesheetPage() {
               <p className="text-3xl font-bold">{pendingEntries.length}</p>
               <p className="text-sm text-muted-foreground">Pending Approval</p>
             </div>
+            {isManager && flaggedClockIns.length > 0 && (
+              <div className="text-center p-4 rounded-lg bg-amber-100">
+                <p className="text-3xl font-bold text-amber-700">{flaggedClockIns.length}</p>
+                <p className="text-sm text-amber-600">Flagged Clock-ins</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -242,6 +249,46 @@ export default async function TimesheetPage() {
                       <Badge variant="secondary">On Break</Badge>
                     )}
                   </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Flagged Clock-ins (Manager only) */}
+      {isManager && flaggedClockIns.length > 0 && (
+        <Card className="mb-6 border-amber-200">
+          <CardHeader className="bg-amber-50">
+            <CardTitle className="text-amber-800">Flagged Clock-ins</CardTitle>
+            <CardDescription className="text-amber-700">
+              Early or late clock-ins that require your approval
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="space-y-4">
+              {flaggedClockIns.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between p-4 rounded-lg border border-amber-200 bg-amber-50/50"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{entry.user.name}</span>
+                      <Badge variant="warning">
+                        {entry.clockInFlag === "EARLY" ? "Early" : "Late"} Clock-in
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Clocked in at {formatTime(entry.clockIn)} on {formatDate(entry.clockIn)}
+                    </p>
+                    {entry.shift && (
+                      <p className="text-xs text-amber-700">
+                        Shift was scheduled for {formatTime(entry.shift.startTime)}
+                      </p>
+                    )}
+                  </div>
+                  <TimesheetActions entry={entry} showApprovalActions={true} />
                 </div>
               ))}
             </div>

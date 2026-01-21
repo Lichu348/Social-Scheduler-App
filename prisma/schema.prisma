@@ -82,6 +82,10 @@ model Location {
   cashTransactions     CashTransaction[]
   cashUpSessions       CashUpSession[]
   settingSignoffs      SettingSignoff[]  @relation("SettingSignoffs")
+  inventoryItems       InventoryItem[]
+  taskTemplates        TaskTemplate[]
+  weeklyTasks          WeeklyTask[]
+  dailyNotes           DailyNote[]
 
   @@index([organizationId])
 }
@@ -182,6 +186,11 @@ model Organization {
   maintenanceWorkLogs   MaintenanceWorkLog[]
   cashUpSessions        CashUpSession[]
   payPeriods            PayPeriod[]
+  inventoryItems        InventoryItem[]
+  inventoryLogs         InventoryLog[]
+  taskTemplates         TaskTemplate[]
+  weeklyTasks           WeeklyTask[]
+  dailyNotes            DailyNote[]
 }
 
 model Shift {
@@ -326,6 +335,11 @@ model TimeEntry {
   clockInLongitude  Float?
   clockOutLatitude  Float?
   clockOutLongitude Float?
+  // Clock-in approval for early/late punches
+  clockInFlag       String?                        // "EARLY" or "LATE" if outside normal window
+  clockInApproved   Boolean   @default(true)       // false if needs manager approval
+  clockInApprovedBy String?                        // Manager who approved
+  clockInApprovedAt DateTime?                      // When approved
   userId            String
   shiftId           String?
   shift             Shift?    @relation(fields: [shiftId], references: [id])
@@ -334,6 +348,7 @@ model TimeEntry {
   @@index([clockIn])
   @@index([shiftId])
   @@index([userId])
+  @@index([clockInApproved])
 }
 
 // UNIFIED COMPLIANCE SYSTEM
@@ -481,6 +496,9 @@ model User {
   maintenanceWorkLogsLogged MaintenanceWorkLog[] @relation("MaintenanceWorkLogsLogged")
   cashUpSessionsCompleted  CashUpSession[]      @relation("CashUpSessionsCompleted")
   cashUpSessionsReviewed   CashUpSession[]      @relation("CashUpSessionsReviewed")
+  inventoryLogsLogged      InventoryLog[]       @relation("InventoryLogsLogged")
+  tasksCompleted           WeeklyTask[]         @relation("TasksCompleted")
+  dailyNotesCreated        DailyNote[]          @relation("DailyNotesCreated")
 
   @@index([email])
   @@index([organizationId])
@@ -898,6 +916,52 @@ model SettingSignoff {
   @@index([signedOffById])
 }
 
+// INVENTORY TRACKING
+// Track cleaning supplies and other inventory items
+model InventoryItem {
+  id             String       @id @default(cuid())
+  name           String                           // "Hand Sanitizer", "Cleaning Spray"
+  category       String       @default("CLEANING") // CLEANING, SAFETY, EQUIPMENT, OTHER
+  unit           String       @default("units")   // "bottles", "packs", "boxes", etc.
+  currentStock   Int          @default(0)         // Current quantity
+  minimumStock   Int          @default(5)         // Reorder threshold
+  reorderAmount  Int          @default(10)        // Suggested reorder quantity
+  notes          String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  locationId     String?
+  location       Location?    @relation(fields: [locationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  stockLogs      InventoryLog[]
+
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([category])
+}
+
+// Track stock changes
+model InventoryLog {
+  id             String        @id @default(cuid())
+  itemId         String
+  item           InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  changeType     String                           // ADD, REMOVE, ADJUST
+  quantity       Int                              // Positive for add, negative for remove
+  previousStock  Int                              // Stock before change
+  newStock       Int                              // Stock after change
+  notes          String?                          // Reason for change
+  loggedById     String
+  loggedBy       User          @relation("InventoryLogsLogged", fields: [loggedById], references: [id])
+  createdAt      DateTime      @default(now())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+
+  @@index([itemId])
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
 // PAY PERIODS
 // Track pay period cut-off dates for staff visibility
 model PayPeriod {
@@ -915,4 +979,79 @@ model PayPeriod {
 
   @@index([organizationId])
   @@index([startDate, endDate])
+}
+
+// WEEKLY TASK SYSTEM
+// Template for recurring weekly tasks
+model TaskTemplate {
+  id             String       @id @default(cuid())
+  name           String                           // "Clean matting area", "Check first aid kit"
+  description    String?                          // Detailed instructions
+  dayOfWeek      Int?                             // 0-6 (Sunday-Saturday), null = any day
+  category       String       @default("GENERAL") // OPENING, CLOSING, CLEANING, SAFETY, GENERAL
+  priority       Int          @default(1)         // 1=normal, 2=high, 3=urgent
+  isActive       Boolean      @default(true)
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  locationId     String?
+  location       Location?    @relation(fields: [locationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  weeklyTasks    WeeklyTask[]
+
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([dayOfWeek])
+}
+
+// Weekly task instances (created from templates or ad-hoc)
+model WeeklyTask {
+  id             String        @id @default(cuid())
+  name           String                           // Task name (from template or custom)
+  description    String?
+  weekStart      DateTime                         // Monday of the week
+  dueDate        DateTime                         // Specific day the task is due
+  category       String        @default("GENERAL")
+  priority       Int           @default(1)
+  isCompleted    Boolean       @default(false)
+  completedAt    DateTime?
+  completedById  String?
+  completedBy    User?         @relation("TasksCompleted", fields: [completedById], references: [id])
+  completionNotes String?                         // Notes when completing
+  isAdhoc        Boolean       @default(false)    // True if not from template
+  templateId     String?
+  template       TaskTemplate? @relation(fields: [templateId], references: [id])
+  locationId     String?
+  location       Location?     @relation(fields: [locationId], references: [id])
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([weekStart])
+  @@index([dueDate])
+  @@index([isCompleted])
+}
+
+// Manager notes for specific dates (daily handover notes)
+model DailyNote {
+  id             String       @id @default(cuid())
+  date           DateTime                         // The date this note applies to
+  content        String                           // The note content
+  priority       String       @default("NORMAL")  // LOW, NORMAL, HIGH, URGENT
+  createdById    String
+  createdBy      User         @relation("DailyNotesCreated", fields: [createdById], references: [id])
+  locationId     String?
+  location       Location?    @relation(fields: [locationId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([date])
 }

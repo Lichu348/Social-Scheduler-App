@@ -28,6 +28,8 @@ import {
   ClipboardCheck,
   ChevronLeft,
   ChevronRight,
+  Package,
+  ListTodo,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -57,6 +59,8 @@ const navigation = [
   { name: "Growth", href: "/dashboard/growth", icon: TrendingUp, managerOnly: true },
   { name: "Spend", href: "/dashboard/spend", icon: Wallet, managerOnly: true },
   { name: "Cash", href: "/dashboard/cash", icon: Banknote },
+  { name: "Inventory", href: "/dashboard/inventory", icon: Package, managerOnly: true },
+  { name: "Tasks", href: "/dashboard/tasks", icon: ListTodo },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, managerOnly: true },
   { name: "Locations", href: "/dashboard/locations", icon: MapPin, managerOnly: true },
   { name: "Shift Types", href: "/dashboard/shift-types", icon: Layers, adminOnly: true },

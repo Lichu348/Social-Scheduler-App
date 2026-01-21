@@ -120,22 +120,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate clock-in window
-    const earliestClockIn = new Date(targetShift.startTime.getTime() - clockInWindowMinutes * 60 * 1000);
-    const latestClockIn = targetShift.endTime;
+    // Check clock-in timing thresholds
+    // Early: more than 10 mins before shift start needs approval
+    // Late: more than 5 mins after shift start needs approval
+    const EARLY_THRESHOLD_MINS = 10;
+    const LATE_THRESHOLD_MINS = 5;
 
-    if (now < earliestClockIn) {
-      const minutesUntil = Math.ceil((earliestClockIn.getTime() - now.getTime()) / (60 * 1000));
-      return NextResponse.json(
-        {
-          error: `You can only clock in within ${clockInWindowMinutes} minutes of your shift start time. Please wait ${minutesUntil} more minutes.`,
-          code: "TOO_EARLY"
-        },
-        { status: 400 }
-      );
-    }
+    const shiftStart = targetShift.startTime;
+    const shiftEnd = targetShift.endTime;
+    const minutesBeforeShift = (shiftStart.getTime() - now.getTime()) / (60 * 1000);
+    const minutesAfterShift = (now.getTime() - shiftStart.getTime()) / (60 * 1000);
 
-    if (now > latestClockIn) {
+    let clockInFlag: string | null = null;
+    let clockInApproved = true;
+
+    // Check if shift has ended
+    if (now > shiftEnd) {
       return NextResponse.json(
         {
           error: "This shift has already ended. Please contact your manager.",
@@ -143,6 +143,18 @@ export async function POST(req: Request) {
         },
         { status: 400 }
       );
+    }
+
+    // Check if too early (more than 10 mins before shift)
+    if (minutesBeforeShift > EARLY_THRESHOLD_MINS) {
+      clockInFlag = "EARLY";
+      clockInApproved = false;
+    }
+
+    // Check if late (more than 5 mins after shift start)
+    if (minutesAfterShift > LATE_THRESHOLD_MINS) {
+      clockInFlag = "LATE";
+      clockInApproved = false;
     }
 
     // Validate geolocation against the shift's location (if configured)
@@ -187,10 +199,21 @@ export async function POST(req: Request) {
         clockIn: now,
         clockInLatitude: latitude ?? null,
         clockInLongitude: longitude ?? null,
+        clockInFlag,
+        clockInApproved,
       },
     });
 
-    return NextResponse.json(timeEntry);
+    // Return with flag info so the frontend can show a message
+    return NextResponse.json({
+      ...timeEntry,
+      requiresApproval: !clockInApproved,
+      flagReason: clockInFlag === "EARLY"
+        ? "You clocked in more than 10 minutes early. This requires manager approval."
+        : clockInFlag === "LATE"
+        ? "You clocked in more than 5 minutes late. This requires manager approval."
+        : null,
+    });
   } catch (error) {
     console.error("Clock in error:", error);
     return NextResponse.json(
