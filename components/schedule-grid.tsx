@@ -430,8 +430,13 @@ export function ScheduleGrid({
   };
 
   // Hover hint component for adding shifts
-  const AddShiftHint = () => (
-    <div className="hidden group-hover:flex absolute inset-1 border-2 border-dashed border-gray-300 rounded-md items-center justify-center bg-gray-50/80 transition-all">
+  const AddShiftHint = ({ hasShifts }: { hasShifts?: boolean }) => (
+    <div className={cn(
+      "hidden group-hover:flex items-center justify-center transition-all",
+      hasShifts
+        ? "mt-2 py-1.5 border border-dashed border-gray-300 rounded-md bg-gray-50/80"
+        : "absolute inset-1 border-2 border-dashed border-gray-300 rounded-md bg-gray-50/80"
+    )}>
       <div className="flex items-center gap-1 text-gray-500 text-xs font-medium">
         <Plus className="h-3 w-3" />
         Add Shift
@@ -636,7 +641,7 @@ export function ScheduleGrid({
                         <div className="space-y-2">
                           {openShifts.map((shift) => renderShiftCard(shift))}
                         </div>
-                        {isManager && <AddShiftHint />}
+                        {isManager && <AddShiftHint hasShifts={openShifts.length > 0} />}
                       </div>
                     );
 
@@ -680,7 +685,7 @@ export function ScheduleGrid({
                         <div className="space-y-2">
                           {openShifts.map((shift) => renderShiftCard(shift))}
                         </div>
-                        {isManager && <AddShiftHint />}
+                        {isManager && <AddShiftHint hasShifts={openShifts.length > 0} />}
                       </div>
                     );
 
@@ -767,7 +772,7 @@ export function ScheduleGrid({
                                 </div>
                               ) : null}
                             </div>
-                            {isManager && <AddShiftHint />}
+                            {isManager && <AddShiftHint hasShifts={userShifts.length > 0 || !!holiday} />}
                           </div>
                         );
 
@@ -830,7 +835,7 @@ export function ScheduleGrid({
                                 </div>
                               ) : null}
                             </div>
-                            {isManager && <AddShiftHint />}
+                            {isManager && <AddShiftHint hasShifts={userShifts.length > 0 || !!holiday} />}
                           </div>
                         );
 
