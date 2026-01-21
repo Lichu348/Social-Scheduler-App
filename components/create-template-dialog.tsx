@@ -119,6 +119,13 @@ export function CreateTemplateDialog({
     setLoading(true);
     setError(null);
 
+    // Require location selection
+    if (!formData.locationId && locations.length > 0) {
+      setError("Please select a location for this template");
+      setLoading(false);
+      return;
+    }
+
     try {
       const url = isEditing
         ? `/api/shift-templates/${template.id}`
@@ -190,7 +197,7 @@ export function CreateTemplateDialog({
   ];
 
   const locationOptions = [
-    { value: "", label: "All Locations" },
+    { value: "", label: "Select location..." },
     ...locations.map((loc) => ({
       value: loc.id,
       label: loc.name,
@@ -272,7 +279,7 @@ export function CreateTemplateDialog({
 
             {locations.length > 0 && (
               <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
+                <Label htmlFor="location">Location *</Label>
                 <Select
                   id="location"
                   options={locationOptions}
@@ -282,7 +289,7 @@ export function CreateTemplateDialog({
                   }
                 />
                 <p className="text-xs text-muted-foreground">
-                  Leave as &quot;All Locations&quot; to use this template everywhere
+                  Each template is specific to one location
                 </p>
               </div>
             )}

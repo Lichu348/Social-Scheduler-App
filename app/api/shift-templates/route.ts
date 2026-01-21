@@ -17,8 +17,8 @@ export async function GET(req: Request) {
       where: {
         organizationId: session.user.organizationId,
         ...(activeOnly ? { isActive: true } : {}),
-        // If locationId is provided, show templates for that location OR templates with no location (global)
-        ...(locationId ? { OR: [{ locationId }, { locationId: null }] } : {}),
+        // If locationId is provided, only show templates for that specific location
+        ...(locationId ? { locationId } : {}),
       },
       include: {
         category: {
