@@ -28,7 +28,7 @@ interface LogCashDialogProps {
 }
 
 const TRANSACTION_TYPES = [
-  { value: "TAKING", label: "Cash Taking", description: "Cash received from customers" },
+  { value: "TAKING", label: "Cash Received", description: "Cash received from customers" },
   { value: "BANKING", label: "Banking", description: "Cash taken to the bank" },
   { value: "PURCHASE", label: "Purchase", description: "Cash used to buy something" },
   { value: "ADJUSTMENT", label: "Adjustment", description: "Correct the cash total" },

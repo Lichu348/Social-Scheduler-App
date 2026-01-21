@@ -40,7 +40,7 @@ interface EditCashDialogProps {
 }
 
 const TRANSACTION_TYPES = [
-  { value: "TAKING", label: "Cash Taking" },
+  { value: "TAKING", label: "Cash Received" },
   { value: "BANKING", label: "Banking" },
   { value: "PURCHASE", label: "Purchase" },
   { value: "ADJUSTMENT", label: "Adjustment" },

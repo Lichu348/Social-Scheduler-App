@@ -23,7 +23,7 @@ const typeIcons: Record<string, React.ReactNode> = {
 };
 
 const typeLabels: Record<string, string> = {
-  TAKING: "Cash Taking",
+  TAKING: "Cash Received",
   BANKING: "Banked",
   PURCHASE: "Purchase",
   ADJUSTMENT: "Adjustment",
