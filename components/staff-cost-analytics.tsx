@@ -14,7 +14,6 @@ interface StaffCost {
   hours: number;
   grossPay: number;
   holidayAccrual: number;
-  employeeNI: number;
   employerNI: number;
   totalCost: number;
 }
@@ -39,7 +38,6 @@ interface AnalyticsData {
     hours: number;
     grossPay: number;
     holidayAccrual: number;
-    employeeNI: number;
     employerNI: number;
     totalCost: number;
   };
@@ -165,7 +163,7 @@ export function StaffCostAnalytics() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
@@ -194,16 +192,6 @@ export function StaffCostAnalytics() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(data.totals.holidayAccrual)}</div>
             <p className="text-xs text-muted-foreground">12.07% for hourly staff</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Employee NI</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(data.totals.employeeNI)}</div>
           </CardContent>
         </Card>
 

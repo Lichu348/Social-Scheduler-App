@@ -18,7 +18,6 @@ interface StaffCost {
   hours: number;
   grossPay: number;
   holidayAccrual: number;
-  employeeNI: number;
   employerNI: number;
   totalCost: number;
 }
@@ -41,11 +40,10 @@ export function StaffCostTable({ staff }: StaffCostTableProps) {
       hours: acc.hours + s.hours,
       grossPay: acc.grossPay + s.grossPay,
       holidayAccrual: acc.holidayAccrual + s.holidayAccrual,
-      employeeNI: acc.employeeNI + s.employeeNI,
       employerNI: acc.employerNI + s.employerNI,
       totalCost: acc.totalCost + s.totalCost,
     }),
-    { hours: 0, grossPay: 0, holidayAccrual: 0, employeeNI: 0, employerNI: 0, totalCost: 0 }
+    { hours: 0, grossPay: 0, holidayAccrual: 0, employerNI: 0, totalCost: 0 }
   );
 
   return (
@@ -57,7 +55,6 @@ export function StaffCostTable({ staff }: StaffCostTableProps) {
           <TableHead className="text-right">Hours</TableHead>
           <TableHead className="text-right">Gross Pay</TableHead>
           <TableHead className="text-right">Holiday Accrual</TableHead>
-          <TableHead className="text-right">Employee NI</TableHead>
           <TableHead className="text-right">Employer NI</TableHead>
           <TableHead className="text-right">Total Cost</TableHead>
         </TableRow>
@@ -76,7 +73,6 @@ export function StaffCostTable({ staff }: StaffCostTableProps) {
             <TableCell className="text-right">
               {s.holidayAccrual > 0 ? formatCurrency(s.holidayAccrual) : "-"}
             </TableCell>
-            <TableCell className="text-right">{formatCurrency(s.employeeNI)}</TableCell>
             <TableCell className="text-right">{formatCurrency(s.employerNI)}</TableCell>
             <TableCell className="text-right font-bold">{formatCurrency(s.totalCost)}</TableCell>
           </TableRow>
@@ -88,7 +84,6 @@ export function StaffCostTable({ staff }: StaffCostTableProps) {
           <TableCell className="text-right font-bold">{totals.hours.toFixed(1)}</TableCell>
           <TableCell className="text-right font-bold">{formatCurrency(totals.grossPay)}</TableCell>
           <TableCell className="text-right font-bold">{formatCurrency(totals.holidayAccrual)}</TableCell>
-          <TableCell className="text-right font-bold">{formatCurrency(totals.employeeNI)}</TableCell>
           <TableCell className="text-right font-bold">{formatCurrency(totals.employerNI)}</TableCell>
           <TableCell className="text-right font-bold">{formatCurrency(totals.totalCost)}</TableCell>
         </TableRow>
