@@ -6,6 +6,7 @@ import { formatDate, formatTime, calculateHours } from "@/lib/utils";
 import { TimesheetActions } from "@/components/timesheet-actions";
 import { ExportTimesheetDialog } from "@/components/export-timesheet-dialog";
 import { LocationScheduleFilter } from "@/components/location-schedule-filter";
+import { AddManualTimeEntryDialog } from "@/components/add-manual-time-entry-dialog";
 import { Calendar, Banknote } from "lucide-react";
 
 interface PayPeriod {
@@ -43,6 +44,14 @@ async function getTimeEntries(userId: string, organizationId: string, role: stri
     },
     orderBy: { clockIn: "desc" },
     take: 50,
+  });
+}
+
+async function getUsers(organizationId: string) {
+  return prisma.user.findMany({
+    where: { organizationId },
+    select: { id: true, name: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 }
 
@@ -125,10 +134,11 @@ export default async function TimesheetPage({ searchParams }: TimesheetPageProps
   const params = await searchParams;
   const locationId = params.location;
 
-  const [entries, currentPayPeriod, locations] = await Promise.all([
+  const [entries, currentPayPeriod, locations, users] = await Promise.all([
     getTimeEntries(session.user.id, session.user.organizationId, session.user.role, locationId),
     getCurrentPayPeriod(session.user.organizationId),
     getLocations(session.user.organizationId, session.user.id, session.user.role),
+    getUsers(session.user.organizationId),
   ]);
 
   // Get hours for the current pay period (for the current user)
@@ -196,6 +206,7 @@ export default async function TimesheetPage({ searchParams }: TimesheetPageProps
               showAllOption={showAllOption}
             />
           )}
+          {isManager && <AddManualTimeEntryDialog users={users} />}
           {isManager && <ExportTimesheetDialog />}
         </div>
       </div>
