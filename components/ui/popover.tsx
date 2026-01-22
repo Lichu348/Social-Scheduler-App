@@ -70,7 +70,7 @@ export function PopoverTrigger({ children, asChild }: PopoverTriggerProps) {
 
 interface PopoverContentProps extends React.HTMLAttributes<HTMLDivElement> {
   align?: "start" | "center" | "end";
-  side?: "top" | "bottom";
+  side?: "top" | "bottom" | "left" | "right";
   sideOffset?: number;
 }
 
@@ -111,61 +111,118 @@ export function PopoverContent({
       let left = 0;
       let finalSide = side;
 
-      // Calculate initial position
-      if (side === "top") {
-        top = triggerRect.top - sideOffset - popoverHeight;
-      } else {
-        top = triggerRect.bottom + sideOffset;
-      }
-
-      if (align === "start") {
-        left = triggerRect.left;
-      } else if (align === "center") {
-        left = triggerRect.left + triggerRect.width / 2 - popoverWidth / 2;
-      } else {
-        left = triggerRect.right - popoverWidth;
-      }
-
-      // Viewport boundary checks
+      // Viewport info
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
       const padding = 8;
 
-      // Check if popover goes off the top
-      if (top < padding) {
-        if (side === "top") {
-          // Flip to bottom
-          top = triggerRect.bottom + sideOffset;
-          finalSide = "bottom";
+      // Calculate initial position based on side
+      if (side === "top") {
+        top = triggerRect.top - sideOffset - popoverHeight;
+        if (align === "start") {
+          left = triggerRect.left;
+        } else if (align === "center") {
+          left = triggerRect.left + triggerRect.width / 2 - popoverWidth / 2;
         } else {
-          top = padding;
+          left = triggerRect.right - popoverWidth;
+        }
+      } else if (side === "bottom") {
+        top = triggerRect.bottom + sideOffset;
+        if (align === "start") {
+          left = triggerRect.left;
+        } else if (align === "center") {
+          left = triggerRect.left + triggerRect.width / 2 - popoverWidth / 2;
+        } else {
+          left = triggerRect.right - popoverWidth;
+        }
+      } else if (side === "right") {
+        left = triggerRect.right + sideOffset;
+        if (align === "start") {
+          top = triggerRect.top;
+        } else if (align === "center") {
+          top = triggerRect.top + triggerRect.height / 2 - popoverHeight / 2;
+        } else {
+          top = triggerRect.bottom - popoverHeight;
+        }
+      } else if (side === "left") {
+        left = triggerRect.left - sideOffset - popoverWidth;
+        if (align === "start") {
+          top = triggerRect.top;
+        } else if (align === "center") {
+          top = triggerRect.top + triggerRect.height / 2 - popoverHeight / 2;
+        } else {
+          top = triggerRect.bottom - popoverHeight;
         }
       }
 
-      // Check if popover goes off the bottom
-      if (top + popoverHeight > viewportHeight - padding) {
-        if (side === "bottom") {
-          // Flip to top
-          top = triggerRect.top - sideOffset - popoverHeight;
-          finalSide = "top";
+      // Viewport boundary checks for vertical sides (top/bottom)
+      if (side === "top" || side === "bottom") {
+        // Check if popover goes off the top
+        if (top < padding) {
+          if (side === "top") {
+            top = triggerRect.bottom + sideOffset;
+            finalSide = "bottom";
+          } else {
+            top = padding;
+          }
         }
-        // If still off screen, clamp to viewport
+
+        // Check if popover goes off the bottom
+        if (top + popoverHeight > viewportHeight - padding) {
+          if (side === "bottom") {
+            top = triggerRect.top - sideOffset - popoverHeight;
+            finalSide = "top";
+          }
+          if (top + popoverHeight > viewportHeight - padding) {
+            top = viewportHeight - popoverHeight - padding;
+          }
+        }
+
+        // Ensure not above viewport
+        if (top < padding) {
+          top = padding;
+        }
+
+        // Horizontal boundaries
+        if (left < padding) {
+          left = padding;
+        }
+        if (left + popoverWidth > viewportWidth - padding) {
+          left = viewportWidth - popoverWidth - padding;
+        }
+      }
+
+      // Viewport boundary checks for horizontal sides (left/right)
+      if (side === "left" || side === "right") {
+        // Check if popover goes off the right
+        if (left + popoverWidth > viewportWidth - padding) {
+          if (side === "right") {
+            left = triggerRect.left - sideOffset - popoverWidth;
+            finalSide = "left";
+          }
+          if (left + popoverWidth > viewportWidth - padding) {
+            left = viewportWidth - popoverWidth - padding;
+          }
+        }
+
+        // Check if popover goes off the left
+        if (left < padding) {
+          if (side === "left") {
+            left = triggerRect.right + sideOffset;
+            finalSide = "right";
+          }
+          if (left < padding) {
+            left = padding;
+          }
+        }
+
+        // Vertical boundaries - keep popover on screen
+        if (top < padding) {
+          top = padding;
+        }
         if (top + popoverHeight > viewportHeight - padding) {
           top = viewportHeight - popoverHeight - padding;
         }
-      }
-
-      // Final check - ensure not above viewport
-      if (top < padding) {
-        top = padding;
-      }
-
-      // Check horizontal boundaries
-      if (left < padding) {
-        left = padding;
-      }
-      if (left + popoverWidth > viewportWidth - padding) {
-        left = viewportWidth - popoverWidth - padding;
       }
 
       setPosition({ top, left });
@@ -226,6 +283,8 @@ export function PopoverContent({
         "z-[9999] rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in fade-in-0 zoom-in-95",
         adjustedSide === "top" && "origin-bottom",
         adjustedSide === "bottom" && "origin-top",
+        adjustedSide === "left" && "origin-right",
+        adjustedSide === "right" && "origin-left",
         className
       )}
       {...props}
