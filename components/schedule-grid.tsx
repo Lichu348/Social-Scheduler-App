@@ -1,14 +1,19 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Plus, Calendar, Cake, Users, GraduationCap, Trophy, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar, Cake, Users, GraduationCap, Trophy, CalendarDays, GripVertical } from "lucide-react";
 import { cn, formatTime, getWeekDates, isSameDay } from "@/lib/utils";
 import { ShiftDetailDialog } from "./shift-detail-dialog";
 import { QuickAddShiftDialog } from "./quick-add-shift-dialog";
 import { EventDetailDialog } from "./event-detail-dialog";
+
+const STAFF_COLUMN_WIDTH_KEY = "schedule-staff-column-width";
+const DEFAULT_STAFF_COLUMN_WIDTH = 200;
+const MIN_STAFF_COLUMN_WIDTH = 150;
+const MAX_STAFF_COLUMN_WIDTH = 400;
 
 interface ShiftCategory {
   id: string;
@@ -181,6 +186,56 @@ export function ScheduleGrid({
   } | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateInputRef = useRef<HTMLInputElement>(null);
+
+  // Resizable staff column
+  const [staffColumnWidth, setStaffColumnWidth] = useState(DEFAULT_STAFF_COLUMN_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  // Load saved column width from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(STAFF_COLUMN_WIDTH_KEY);
+    if (saved) {
+      const width = parseInt(saved, 10);
+      if (!isNaN(width) && width >= MIN_STAFF_COLUMN_WIDTH && width <= MAX_STAFF_COLUMN_WIDTH) {
+        setStaffColumnWidth(width);
+      }
+    }
+  }, []);
+
+  // Handle resize drag
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeRef.current = { startX: e.clientX, startWidth: staffColumnWidth };
+  }, [staffColumnWidth]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const diff = e.clientX - resizeRef.current.startX;
+      const newWidth = Math.min(
+        MAX_STAFF_COLUMN_WIDTH,
+        Math.max(MIN_STAFF_COLUMN_WIDTH, resizeRef.current.startWidth + diff)
+      );
+      setStaffColumnWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      localStorage.setItem(STAFF_COLUMN_WIDTH_KEY, staffColumnWidth.toString());
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing, staffColumnWidth]);
 
   // Handle date picker selection
   const handleDateSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -570,8 +625,22 @@ export function ScheduleGrid({
             {/* Day Headers */}
             <thead>
               <tr className="border-b">
-                <th className="w-52 min-w-[200px] px-4 py-3 text-left bg-gray-50 border-r sticky left-0 z-10">
+                <th
+                  className="px-4 py-3 text-left bg-gray-50 border-r sticky left-0 z-10 relative"
+                  style={{ width: staffColumnWidth, minWidth: staffColumnWidth }}
+                >
                   <span className="text-sm font-medium text-gray-500">Staff</span>
+                  {/* Resize handle */}
+                  <div
+                    className={cn(
+                      "absolute right-0 top-0 bottom-0 w-4 cursor-col-resize flex items-center justify-center hover:bg-gray-200 transition-colors group",
+                      isResizing && "bg-blue-200"
+                    )}
+                    onMouseDown={handleResizeMouseDown}
+                    title="Drag to resize"
+                  >
+                    <GripVertical className="h-4 w-4 text-gray-400 group-hover:text-gray-600" />
+                  </div>
                 </th>
                 {viewMode === "week" ? (
                   orderedWeekDates.map((date, i) => {
@@ -619,14 +688,17 @@ export function ScheduleGrid({
               {/* Events Row - Only show if there are events */}
               {events.length > 0 && (
                 <tr className="border-b bg-amber-50/50">
-                  <td className="px-4 py-4 border-r bg-amber-50 sticky left-0 z-10">
+                  <td
+                    className="px-4 py-4 border-r bg-amber-50 sticky left-0 z-10"
+                    style={{ width: staffColumnWidth, minWidth: staffColumnWidth }}
+                  >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
                         <CalendarDays className="h-5 w-5 text-white" />
                       </div>
-                      <div>
-                        <p className="font-medium text-sm text-amber-800">Events</p>
-                        <p className="text-xs text-amber-600">Parties, groups & bookings</p>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm text-amber-800 truncate">Events</p>
+                        <p className="text-xs text-amber-600 truncate">Parties, groups & bookings</p>
                       </div>
                     </div>
                   </td>
@@ -665,14 +737,17 @@ export function ScheduleGrid({
 
               {/* Open Shifts Row */}
               <tr className="border-b bg-green-50/50">
-                <td className="px-4 py-4 border-r bg-green-50 sticky left-0 z-10">
+                <td
+                  className="px-4 py-4 border-r bg-green-50 sticky left-0 z-10"
+                  style={{ width: staffColumnWidth, minWidth: staffColumnWidth }}
+                >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
                       <Plus className="h-5 w-5 text-white" />
                     </div>
-                    <div>
-                      <p className="font-medium text-sm text-green-800">Open Shifts</p>
-                      <p className="text-xs text-green-600">Available to pick up</p>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-green-800 truncate">Open Shifts</p>
+                      <p className="text-xs text-green-600 truncate">Available to pick up</p>
                     </div>
                   </div>
                 </td>
@@ -771,7 +846,10 @@ export function ScheduleGrid({
 
                 return (
                   <tr key={user.id} className={cn("border-b", isCurrentUser && "bg-blue-50/30")}>
-                    <td className="px-4 py-4 border-r sticky left-0 z-10 bg-white min-w-[200px]">
+                    <td
+                      className="px-4 py-4 border-r sticky left-0 z-10 bg-white"
+                      style={{ width: staffColumnWidth, minWidth: staffColumnWidth }}
+                    >
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0",
@@ -779,8 +857,8 @@ export function ScheduleGrid({
                         )}>
                           {user.name.charAt(0).toUpperCase()}
                         </div>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm text-gray-900">
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-medium text-sm text-gray-900 truncate">
                             {user.name}
                             {isCurrentUser && <span className="text-blue-500 ml-1">(You)</span>}
                           </span>
