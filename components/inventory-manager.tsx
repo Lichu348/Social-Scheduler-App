@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Pencil,
   Trash2,
+  MapPin,
 } from "lucide-react";
 
 interface Location {
@@ -75,6 +76,7 @@ export function InventoryManager({ locations, isAdmin }: InventoryManagerProps) 
   const [error, setError] = useState<string | null>(null);
   const [filterLowStock, setFilterLowStock] = useState(false);
   const [filterCategory, setFilterCategory] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -95,13 +97,14 @@ export function InventoryManager({ locations, isAdmin }: InventoryManagerProps) 
 
   useEffect(() => {
     fetchItems();
-  }, [filterLowStock, filterCategory]);
+  }, [filterLowStock, filterCategory, filterLocation]);
 
   const fetchItems = async () => {
     try {
       const params = new URLSearchParams();
       if (filterLowStock) params.set("lowStock", "true");
       if (filterCategory) params.set("category", filterCategory);
+      if (filterLocation) params.set("locationId", filterLocation);
 
       const res = await fetch(`/api/inventory?${params}`);
       if (res.ok) {
@@ -282,6 +285,20 @@ export function InventoryManager({ locations, isAdmin }: InventoryManagerProps) 
       {/* Filters and Add Button */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-4">
+          {locations.length > 0 && (
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <Select
+                options={[
+                  { value: "", label: "All Locations" },
+                  ...locations.map((loc) => ({ value: loc.id, label: loc.name })),
+                ]}
+                value={filterLocation}
+                onChange={(e) => setFilterLocation(e.target.value)}
+                className="w-[180px]"
+              />
+            </div>
+          )}
           <Select
             options={[
               { value: "", label: "All Categories" },
