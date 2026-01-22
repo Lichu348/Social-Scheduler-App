@@ -155,6 +155,80 @@ export async function GET(req: Request) {
     summaryWs["!cols"] = [{ wch: 20 }, { wch: 15 }, { wch: 15 }];
     XLSX.utils.book_append_sheet(wb, summaryWs, "Summary");
 
+    // Add Hours by Shift Type sheet (pivot table style)
+    // First, collect all unique shift types and employees
+    const shiftTypes = new Set<string>();
+    const employeeShiftHours: Record<string, Record<string, number>> = {};
+
+    entries.forEach((entry) => {
+      const employeeName = entry.user.name;
+      const shiftType = entry.shift?.category?.name || "Uncategorized";
+
+      shiftTypes.add(shiftType);
+
+      if (!employeeShiftHours[employeeName]) {
+        employeeShiftHours[employeeName] = {};
+      }
+
+      const clockIn = new Date(entry.clockIn);
+      const clockOut = entry.clockOut ? new Date(entry.clockOut) : null;
+      const grossHours = clockOut
+        ? (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60)
+        : 0;
+      const netHours = Math.max(0, grossHours - entry.totalBreak / 60);
+
+      if (!employeeShiftHours[employeeName][shiftType]) {
+        employeeShiftHours[employeeName][shiftType] = 0;
+      }
+      employeeShiftHours[employeeName][shiftType] += netHours;
+    });
+
+    // Sort shift types alphabetically
+    const sortedShiftTypes = Array.from(shiftTypes).sort();
+
+    // Build the pivot table data
+    const pivotData = Object.entries(employeeShiftHours)
+      .sort(([a], [b]) => a.localeCompare(b)) // Sort by employee name
+      .map(([employeeName, hours]) => {
+        const row: Record<string, string | number> = { "Employee": employeeName };
+        let totalHours = 0;
+
+        sortedShiftTypes.forEach((shiftType) => {
+          const hoursForType = hours[shiftType] || 0;
+          row[shiftType] = hoursForType > 0 ? Number(hoursForType.toFixed(2)) : "";
+          totalHours += hoursForType;
+        });
+
+        row["Total Hours"] = Number(totalHours.toFixed(2));
+        return row;
+      });
+
+    // Add totals row
+    const totalsRow: Record<string, string | number> = { "Employee": "TOTAL" };
+    let grandTotal = 0;
+    sortedShiftTypes.forEach((shiftType) => {
+      const typeTotal = Object.values(employeeShiftHours).reduce(
+        (sum, hours) => sum + (hours[shiftType] || 0),
+        0
+      );
+      totalsRow[shiftType] = Number(typeTotal.toFixed(2));
+      grandTotal += typeTotal;
+    });
+    totalsRow["Total Hours"] = Number(grandTotal.toFixed(2));
+    pivotData.push(totalsRow);
+
+    const pivotWs = XLSX.utils.json_to_sheet(pivotData);
+
+    // Set column widths for pivot table
+    const pivotColWidths = [
+      { wch: 22 }, // Employee name
+      ...sortedShiftTypes.map(() => ({ wch: 14 })), // Shift type columns
+      { wch: 14 }, // Total Hours
+    ];
+    pivotWs["!cols"] = pivotColWidths;
+
+    XLSX.utils.book_append_sheet(wb, pivotWs, "Hours by Shift Type");
+
     // Generate buffer
     const buffer = XLSX.write(wb, { type: "buffer", bookType: format as XLSX.BookType });
 
