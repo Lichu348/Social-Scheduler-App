@@ -526,6 +526,7 @@ model User {
   inventoryLogsLogged      InventoryLog[]       @relation("InventoryLogsLogged")
   tasksCompleted           WeeklyTask[]         @relation("TasksCompleted")
   dailyNotesCreated        DailyNote[]          @relation("DailyNotesCreated")
+  starterForm              StarterForm?
 
   @@index([email])
   @@index([organizationId])
@@ -1082,4 +1083,64 @@ model DailyNote {
   @@index([organizationId])
   @@index([locationId])
   @@index([date])
+}
+
+// NEW STARTER FORMS
+// Collect payroll and onboarding information from new staff
+model StarterForm {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Status
+  status                String    @default("INCOMPLETE") // INCOMPLETE, SUBMITTED, REVIEWED
+  submittedAt           DateTime?
+  reviewedAt            DateTime?
+  reviewedById          String?
+
+  // Personal Details
+  legalFirstName        String?
+  legalMiddleName       String?
+  legalLastName         String?
+  dateOfBirth           DateTime?
+  addressLine1          String?
+  addressLine2          String?
+  city                  String?
+  county                String?
+  postcode              String?
+  nationalInsurance     String?
+
+  // Bank Details
+  bankName              String?
+  accountHolderName     String?
+  sortCode              String?
+  accountNumber         String?
+
+  // Tax Information
+  hasP45                Boolean   @default(false)
+  previousEmployer      String?
+  p45LeavingDate        DateTime?
+  p45TaxCode            String?
+  p45TotalPay           Float?
+  p45TotalTax           Float?
+  starterDeclaration    String?   // A, B, or C
+  studentLoanPlan       String?   // NONE, PLAN_1, PLAN_2, PLAN_4, POSTGRAD
+
+  // Emergency Contact
+  emergencyName         String?
+  emergencyRelationship String?
+  emergencyPhone        String?
+  emergencyPhoneAlt     String?
+
+  // Right to Work
+  rightToWorkStatus     String?   // BRITISH_IRISH, EU_SETTLED, EU_PRE_SETTLED, VISA, OTHER
+  rightToWorkDocType    String?
+  rightToWorkDocRef     String?
+  rightToWorkExpiry     DateTime?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }

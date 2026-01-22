@@ -2,8 +2,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatDate, formatTime } from "@/lib/utils";
-import { Calendar, Clock, ArrowLeftRight, Palmtree, Users } from "lucide-react";
+import { Calendar, Clock, ArrowLeftRight, Palmtree, Users, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { ClockInButton } from "@/components/clock-in-button";
 
@@ -22,6 +23,7 @@ async function getDashboardData(userId: string, organizationId: string, role: st
     pendingHolidays,
     activeTimeEntry,
     teamMembers,
+    starterForm,
   ] = await Promise.all([
     // Today's shift for the user
     prisma.shift.findFirst({
@@ -64,6 +66,11 @@ async function getDashboardData(userId: string, organizationId: string, role: st
     prisma.user.count({
       where: { organizationId },
     }),
+    // Starter form status
+    prisma.starterForm.findUnique({
+      where: { userId },
+      select: { status: true },
+    }),
   ]);
 
   return {
@@ -73,6 +80,7 @@ async function getDashboardData(userId: string, organizationId: string, role: st
     pendingHolidays,
     activeTimeEntry,
     teamMembers,
+    starterForm,
   };
 }
 
@@ -183,6 +191,69 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Starter Form Prompt - show if not submitted/reviewed */}
+      {(!data.starterForm || data.starterForm.status === "INCOMPLETE") && (
+        <Card className="mb-8 border-amber-200 bg-amber-50/50">
+          <CardHeader className="flex flex-row items-center gap-4 pb-2">
+            <div className="p-2 rounded-full bg-amber-100">
+              <FileText className="h-5 w-5 text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <CardTitle className="text-lg">Complete Your Starter Form</CardTitle>
+              <CardDescription>
+                Please complete your new starter form with payroll and onboarding information
+              </CardDescription>
+            </div>
+            <Link href="/dashboard/starter-form">
+              <Button>
+                <FileText className="h-4 w-4 mr-2" />
+                {data.starterForm?.status === "INCOMPLETE" ? "Continue Form" : "Start Form"}
+              </Button>
+            </Link>
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* Starter Form Submitted Status */}
+      {data.starterForm?.status === "SUBMITTED" && (
+        <Card className="mb-8 border-blue-200 bg-blue-50/50">
+          <CardHeader className="flex flex-row items-center gap-4 pb-2">
+            <div className="p-2 rounded-full bg-blue-100">
+              <AlertCircle className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <CardTitle className="text-lg">Starter Form Submitted</CardTitle>
+              <CardDescription>
+                Your form has been submitted and is waiting for manager review
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="bg-blue-100 text-blue-700">
+              Pending Review
+            </Badge>
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* Starter Form Reviewed Status */}
+      {data.starterForm?.status === "REVIEWED" && (
+        <Card className="mb-8 border-green-200 bg-green-50/50">
+          <CardHeader className="flex flex-row items-center gap-4 pb-2">
+            <div className="p-2 rounded-full bg-green-100">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <CardTitle className="text-lg">Starter Form Complete</CardTitle>
+              <CardDescription>
+                Your new starter form has been reviewed by your manager
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="bg-green-100 text-green-700">
+              Reviewed
+            </Badge>
+          </CardHeader>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Clock In/Out Card */}

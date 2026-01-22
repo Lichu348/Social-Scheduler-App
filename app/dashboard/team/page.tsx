@@ -13,7 +13,9 @@ import { PaymentTypeSelector } from "@/components/payment-type-selector";
 import { EditUserDialog } from "@/components/edit-user-dialog";
 import { HolidayAllowanceDialog } from "@/components/holiday-allowance-dialog";
 import { ResetPasswordDialog } from "@/components/reset-password-dialog";
-import { UserPlus, Palmtree } from "lucide-react";
+import { StarterFormStatusBadge } from "@/components/starter-form-status-badge";
+import { ViewStarterFormDialog } from "@/components/view-starter-form-dialog";
+import { UserPlus, Palmtree, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 async function getTeamData(organizationId: string) {
@@ -38,6 +40,11 @@ async function getTeamData(organizationId: string) {
             location: {
               select: { id: true, name: true },
             },
+          },
+        },
+        starterForm: {
+          select: {
+            status: true,
           },
         },
         _count: {
@@ -299,6 +306,23 @@ export default async function TeamPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-6">
+                    {/* Starter Form Status */}
+                    {isManager && (
+                      <div className="text-right">
+                        <StarterFormStatusBadge status={user.starterForm?.status || null} />
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          <FileText className="h-3 w-3 inline mr-1" />
+                          Starter Form
+                        </p>
+                      </div>
+                    )}
+                    {isManager && user.starterForm?.status && user.starterForm.status !== "INCOMPLETE" && (
+                      <ViewStarterFormDialog
+                        userId={user.id}
+                        userName={user.name}
+                        formStatus={user.starterForm.status}
+                      />
+                    )}
                     <div className="text-right">
                       <p className="text-sm font-medium">{user._count.assignedShifts}</p>
                       <p className="text-xs text-muted-foreground">Shifts</p>
