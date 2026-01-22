@@ -85,6 +85,7 @@ export function PopoverContent({
   const context = React.useContext(PopoverContext);
   const ref = React.useRef<HTMLDivElement>(null);
   const [position, setPosition] = React.useState({ top: 0, left: 0 });
+  const [adjustedSide, setAdjustedSide] = React.useState(side);
   const [mounted, setMounted] = React.useState(false);
 
   if (!context) throw new Error("PopoverContent must be used within Popover");
@@ -99,13 +100,20 @@ export function PopoverContent({
 
     const updatePosition = () => {
       const triggerRect = context.triggerRef.current?.getBoundingClientRect();
+      const popoverEl = ref.current;
       if (!triggerRect) return;
+
+      // Get popover dimensions (use estimates if not yet rendered)
+      const popoverHeight = popoverEl?.offsetHeight || 300;
+      const popoverWidth = popoverEl?.offsetWidth || 320;
 
       let top = 0;
       let left = 0;
+      let finalSide = side;
 
+      // Calculate initial position
       if (side === "top") {
-        top = triggerRect.top - sideOffset;
+        top = triggerRect.top - sideOffset - popoverHeight;
       } else {
         top = triggerRect.bottom + sideOffset;
       }
@@ -113,19 +121,67 @@ export function PopoverContent({
       if (align === "start") {
         left = triggerRect.left;
       } else if (align === "center") {
-        left = triggerRect.left + triggerRect.width / 2;
+        left = triggerRect.left + triggerRect.width / 2 - popoverWidth / 2;
       } else {
-        left = triggerRect.right;
+        left = triggerRect.right - popoverWidth;
+      }
+
+      // Viewport boundary checks
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const padding = 8;
+
+      // Check if popover goes off the top
+      if (top < padding) {
+        if (side === "top") {
+          // Flip to bottom
+          top = triggerRect.bottom + sideOffset;
+          finalSide = "bottom";
+        } else {
+          top = padding;
+        }
+      }
+
+      // Check if popover goes off the bottom
+      if (top + popoverHeight > viewportHeight - padding) {
+        if (side === "bottom") {
+          // Flip to top
+          top = triggerRect.top - sideOffset - popoverHeight;
+          finalSide = "top";
+        }
+        // If still off screen, clamp to viewport
+        if (top + popoverHeight > viewportHeight - padding) {
+          top = viewportHeight - popoverHeight - padding;
+        }
+      }
+
+      // Final check - ensure not above viewport
+      if (top < padding) {
+        top = padding;
+      }
+
+      // Check horizontal boundaries
+      if (left < padding) {
+        left = padding;
+      }
+      if (left + popoverWidth > viewportWidth - padding) {
+        left = viewportWidth - popoverWidth - padding;
       }
 
       setPosition({ top, left });
+      setAdjustedSide(finalSide);
     };
 
+    // Initial position update
     updatePosition();
+    // Update again after a brief delay to get accurate popover dimensions
+    const timeoutId = setTimeout(updatePosition, 10);
+
     window.addEventListener("scroll", updatePosition, true);
     window.addEventListener("resize", updatePosition);
 
     return () => {
+      clearTimeout(timeoutId);
       window.removeEventListener("scroll", updatePosition, true);
       window.removeEventListener("resize", updatePosition);
     };
@@ -165,12 +221,11 @@ export function PopoverContent({
         position: "fixed",
         top: position.top,
         left: position.left,
-        transform: align === "center" ? "translateX(-50%)" : align === "end" ? "translateX(-100%)" : undefined,
       }}
       className={cn(
         "z-[9999] rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in fade-in-0 zoom-in-95",
-        side === "top" && "origin-bottom",
-        side === "bottom" && "origin-top",
+        adjustedSide === "top" && "origin-bottom",
+        adjustedSide === "bottom" && "origin-top",
         className
       )}
       {...props}
