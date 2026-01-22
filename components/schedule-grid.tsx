@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Plus, Calendar, Cake, Users, GraduationCap, 
 import { cn, formatTime, getWeekDates, isSameDay } from "@/lib/utils";
 import { ShiftDetailDialog } from "./shift-detail-dialog";
 import { QuickAddShiftDialog } from "./quick-add-shift-dialog";
+import { QuickAddEventDialog } from "./quick-add-event-dialog";
 import { EventDetailDialog } from "./event-detail-dialog";
 
 const STAFF_COLUMN_WIDTH_KEY = "schedule-staff-column-width";
@@ -184,6 +185,7 @@ export function ScheduleGrid({
     date: Date;
     userId: string | null;
   } | null>(null);
+  const [quickAddEventData, setQuickAddEventData] = useState<{ date: Date } | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -544,6 +546,26 @@ export function ScheduleGrid({
     </div>
   );
 
+  // Hover hint component for adding events
+  const AddEventHint = ({ hasEvents }: { hasEvents?: boolean }) => (
+    <div className={cn(
+      "hidden group-hover:flex items-center justify-center transition-all",
+      hasEvents
+        ? "mt-2 py-1.5 border border-dashed border-amber-300 rounded-md bg-amber-50/80"
+        : "absolute inset-1 border-2 border-dashed border-amber-300 rounded-md bg-amber-50/80"
+    )}>
+      <div className="flex items-center gap-1 text-amber-600 text-xs font-medium">
+        <Plus className="h-3 w-3" />
+        Add Event
+      </div>
+    </div>
+  );
+
+  const handleEventCellClick = (date: Date) => {
+    if (!isManager) return;
+    setQuickAddEventData({ date });
+  };
+
   return (
     <>
       <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
@@ -685,8 +707,8 @@ export function ScheduleGrid({
             </thead>
 
             <tbody>
-              {/* Events Row - Only show if there are events */}
-              {events.length > 0 && (
+              {/* Events Row - Show if there are events OR if user is a manager */}
+              {(events.length > 0 || isManager) && (
                 <tr className="border-b bg-amber-50/50">
                   <td
                     className="px-4 py-4 border-r bg-amber-50 sticky left-0 z-10"
@@ -711,11 +733,16 @@ export function ScheduleGrid({
                           key={i}
                           className={cn(
                             "px-3 py-3 border-r last:border-r-0 align-top",
-                            isToday && "bg-blue-50/50"
+                            isToday && "bg-blue-50/50",
+                            isManager && "cursor-pointer"
                           )}
+                          onClick={() => handleEventCellClick(date)}
                         >
-                          <div className="space-y-2 min-h-[60px]">
-                            {dayEvents.map((event) => renderEventCard(event))}
+                          <div className="relative group min-h-[60px]">
+                            <div className="space-y-2">
+                              {dayEvents.map((event) => renderEventCard(event))}
+                            </div>
+                            {isManager && <AddEventHint hasEvents={dayEvents.length > 0} />}
                           </div>
                         </td>
                       );
@@ -724,11 +751,16 @@ export function ScheduleGrid({
                     <td
                       className={cn(
                         "px-4 py-3 border-r align-top",
-                        isSameDay(currentDate, today) && "bg-blue-50/50"
+                        isSameDay(currentDate, today) && "bg-blue-50/50",
+                        isManager && "cursor-pointer"
                       )}
+                      onClick={() => handleEventCellClick(currentDate)}
                     >
-                      <div className="space-y-2 min-h-[60px]">
-                        {getEventsForDate(currentDate).map((event) => renderEventCard(event))}
+                      <div className="relative group min-h-[60px]">
+                        <div className="space-y-2">
+                          {getEventsForDate(currentDate).map((event) => renderEventCard(event))}
+                        </div>
+                        {isManager && <AddEventHint hasEvents={getEventsForDate(currentDate).length > 0} />}
                       </div>
                     </td>
                   )}
@@ -1043,6 +1075,16 @@ export function ScheduleGrid({
           users={users}
           locationId={locationId}
           onClose={() => setQuickAddData(null)}
+        />
+      )}
+
+      {/* Quick Add Event Dialog */}
+      {quickAddEventData && isManager && (
+        <QuickAddEventDialog
+          date={quickAddEventData.date}
+          locationId={locationId}
+          locations={locations}
+          onClose={() => setQuickAddEventData(null)}
         />
       )}
     </>
