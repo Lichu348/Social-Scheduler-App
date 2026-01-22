@@ -54,7 +54,7 @@ export function shiftReminderEmail(params: {
 }): { subject: string; html: string; text: string } {
   const { employeeName, shiftTitle, shiftDate, shiftTime, locationName, organizationName } = params;
 
-  const subject = `Shift Reminder: ${shiftTitle} on ${shiftDate}`;
+  const subject = `Reminder: You're on shift ${shiftDate}`;
 
   const html = `
 <!DOCTYPE html>
@@ -66,13 +66,13 @@ export function shiftReminderEmail(params: {
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Upcoming Shift Reminder</h1>
+    <h1 style="color: white; margin: 0; font-size: 24px;">Shift Reminder</h1>
   </div>
 
   <div style="background: #fff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
-    <p style="margin-top: 0;">Hi ${employeeName},</p>
+    <p style="margin-top: 0;">Hey ${employeeName}!</p>
 
-    <p>This is a reminder that you have an upcoming shift:</p>
+    <p>Just a friendly reminder that you're scheduled to work soon. Here are your shift details:</p>
 
     <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0;">
       <table style="width: 100%; border-collapse: collapse;">
@@ -97,7 +97,9 @@ export function shiftReminderEmail(params: {
       </table>
     </div>
 
-    <p>Please ensure you arrive on time. If you have any issues, please contact your manager.</p>
+    <p>If you're running late or have any issues getting to work, please let your manager know as soon as possible so we can make arrangements.</p>
+
+    <p>See you soon!</p>
 
     <p style="margin-bottom: 0; color: #6b7280; font-size: 14px;">
       — The ${organizationName} Team
@@ -105,29 +107,31 @@ export function shiftReminderEmail(params: {
   </div>
 
   <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 0;">This is an automated message from ShiftFlow.</p>
+    <p style="margin: 0;">This is an automated reminder from ShiftFlow.</p>
   </div>
 </body>
 </html>
 `;
 
   const text = `
-Upcoming Shift Reminder
+Shift Reminder
 
-Hi ${employeeName},
+Hey ${employeeName}!
 
-This is a reminder that you have an upcoming shift:
+Just a friendly reminder that you're scheduled to work soon. Here are your shift details:
 
 Shift: ${shiftTitle}
 Date: ${shiftDate}
 Time: ${shiftTime}
 ${locationName ? `Location: ${locationName}` : ""}
 
-Please ensure you arrive on time. If you have any issues, please contact your manager.
+If you're running late or have any issues getting to work, please let your manager know as soon as possible so we can make arrangements.
+
+See you soon!
 
 — The ${organizationName} Team
 
-This is an automated message from ShiftFlow.
+This is an automated reminder from ShiftFlow.
 `;
 
   return { subject, html, text };
@@ -143,7 +147,7 @@ export function newShiftAssignedEmail(params: {
 }): { subject: string; html: string; text: string } {
   const { employeeName, shiftTitle, shiftDate, shiftTime, locationName, organizationName } = params;
 
-  const subject = `New Shift Assigned: ${shiftTitle} on ${shiftDate}`;
+  const subject = `You've been scheduled: ${shiftDate}`;
 
   const html = `
 <!DOCTYPE html>
@@ -155,13 +159,13 @@ export function newShiftAssignedEmail(params: {
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">New Shift Assigned</h1>
+    <h1 style="color: white; margin: 0; font-size: 24px;">New Shift Added</h1>
   </div>
 
   <div style="background: #fff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
-    <p style="margin-top: 0;">Hi ${employeeName},</p>
+    <p style="margin-top: 0;">Hey ${employeeName}!</p>
 
-    <p>A new shift has been assigned to you:</p>
+    <p>Good news - you've been added to the rota! Here are your shift details:</p>
 
     <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0;">
       <table style="width: 100%; border-collapse: collapse;">
@@ -186,7 +190,9 @@ export function newShiftAssignedEmail(params: {
       </table>
     </div>
 
-    <p>Log in to ShiftFlow to view your full schedule and manage your shifts.</p>
+    <p>If this doesn't work for you, please speak to your manager as soon as possible so we can find a solution.</p>
+
+    <p>Thanks!</p>
 
     <p style="margin-bottom: 0; color: #6b7280; font-size: 14px;">
       — The ${organizationName} Team
@@ -201,18 +207,20 @@ export function newShiftAssignedEmail(params: {
 `;
 
   const text = `
-New Shift Assigned
+New Shift Added
 
-Hi ${employeeName},
+Hey ${employeeName}!
 
-A new shift has been assigned to you:
+Good news - you've been added to the rota! Here are your shift details:
 
 Shift: ${shiftTitle}
 Date: ${shiftDate}
 Time: ${shiftTime}
 ${locationName ? `Location: ${locationName}` : ""}
 
-Log in to ShiftFlow to view your full schedule and manage your shifts.
+If this doesn't work for you, please speak to your manager as soon as possible so we can find a solution.
+
+Thanks!
 
 — The ${organizationName} Team
 
