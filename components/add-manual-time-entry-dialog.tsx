@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,18 +16,36 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Plus, Coffee } from "lucide-react";
 
 interface User {
   id: string;
   name: string;
 }
 
-interface AddManualTimeEntryDialogProps {
-  users: User[];
+interface BreakRule {
+  minHours: number;
+  breakMinutes: number;
 }
 
-export function AddManualTimeEntryDialog({ users }: AddManualTimeEntryDialogProps) {
+interface AddManualTimeEntryDialogProps {
+  users: User[];
+  breakRules: string;
+}
+
+function calculateBreakMinutes(hoursWorked: number, breakRulesJson: string): number {
+  try {
+    const rules: BreakRule[] = JSON.parse(breakRulesJson);
+    const applicableRule = rules
+      .filter((r) => hoursWorked >= r.minHours)
+      .sort((a, b) => b.minHours - a.minHours)[0];
+    return applicableRule?.breakMinutes || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function AddManualTimeEntryDialog({ users, breakRules }: AddManualTimeEntryDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -38,7 +56,6 @@ export function AddManualTimeEntryDialog({ users }: AddManualTimeEntryDialogProp
     date: new Date().toISOString().split("T")[0],
     clockInTime: "09:00",
     clockOutTime: "17:00",
-    breakMinutes: "0",
     notes: "",
   });
 
@@ -48,11 +65,28 @@ export function AddManualTimeEntryDialog({ users }: AddManualTimeEntryDialogProp
       date: new Date().toISOString().split("T")[0],
       clockInTime: "09:00",
       clockOutTime: "17:00",
-      breakMinutes: "0",
       notes: "",
     });
     setError(null);
   };
+
+  // Calculate gross hours worked (before break deduction)
+  const grossHours = useMemo(() => {
+    if (!formData.clockInTime || !formData.clockOutTime) return 0;
+
+    const [inHours, inMins] = formData.clockInTime.split(":").map(Number);
+    const [outHours, outMins] = formData.clockOutTime.split(":").map(Number);
+
+    let totalMinutes = (outHours * 60 + outMins) - (inHours * 60 + inMins);
+    if (totalMinutes < 0) totalMinutes += 24 * 60; // Handle overnight
+
+    return totalMinutes / 60;
+  }, [formData.clockInTime, formData.clockOutTime]);
+
+  // Auto-calculate break based on break rules
+  const autoBreakMinutes = useMemo(() => {
+    return calculateBreakMinutes(grossHours, breakRules);
+  }, [grossHours, breakRules]);
 
   const handleSubmit = async () => {
     if (!formData.userId) {
@@ -84,7 +118,7 @@ export function AddManualTimeEntryDialog({ users }: AddManualTimeEntryDialogProp
           userId: formData.userId,
           clockIn: clockIn.toISOString(),
           clockOut: clockOut.toISOString(),
-          totalBreak: parseInt(formData.breakMinutes) || 0,
+          totalBreak: autoBreakMinutes,
           notes: formData.notes || null,
         }),
       });
@@ -109,21 +143,11 @@ export function AddManualTimeEntryDialog({ users }: AddManualTimeEntryDialogProp
     label: user.name,
   }));
 
-  // Calculate hours for preview
-  const calculateHours = () => {
-    if (!formData.clockInTime || !formData.clockOutTime) return "0.00";
-
-    const [inHours, inMins] = formData.clockInTime.split(":").map(Number);
-    const [outHours, outMins] = formData.clockOutTime.split(":").map(Number);
-
-    let totalMinutes = (outHours * 60 + outMins) - (inHours * 60 + inMins);
-    if (totalMinutes < 0) totalMinutes += 24 * 60; // Handle overnight
-
-    const breakMins = parseInt(formData.breakMinutes) || 0;
-    const netMinutes = Math.max(0, totalMinutes - breakMins);
-
+  // Calculate net hours (after break deduction)
+  const netHours = useMemo(() => {
+    const netMinutes = Math.max(0, (grossHours * 60) - autoBreakMinutes);
     return (netMinutes / 60).toFixed(2);
-  };
+  }, [grossHours, autoBreakMinutes]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
@@ -190,18 +214,6 @@ export function AddManualTimeEntryDialog({ users }: AddManualTimeEntryDialogProp
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="breakMinutes">Break (minutes)</Label>
-            <Input
-              id="breakMinutes"
-              type="number"
-              min="0"
-              value={formData.breakMinutes}
-              onChange={(e) => setFormData({ ...formData, breakMinutes: e.target.value })}
-              placeholder="0"
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="notes">Notes (optional)</Label>
             <Textarea
               id="notes"
@@ -212,10 +224,22 @@ export function AddManualTimeEntryDialog({ users }: AddManualTimeEntryDialogProp
             />
           </div>
 
-          <div className="p-3 bg-muted rounded-md">
-            <p className="text-sm text-muted-foreground">
-              Total hours: <span className="font-medium text-foreground">{calculateHours()} hours</span>
-            </p>
+          <div className="p-3 bg-muted rounded-md space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Gross hours:</span>
+              <span className="font-medium">{grossHours.toFixed(2)} hours</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Coffee className="h-3 w-3" />
+                Break (auto):
+              </span>
+              <span className="font-medium">{autoBreakMinutes} minutes</span>
+            </div>
+            <div className="flex items-center justify-between text-sm border-t pt-2">
+              <span className="text-muted-foreground font-medium">Net hours:</span>
+              <span className="font-bold text-foreground">{netHours} hours</span>
+            </div>
           </div>
         </div>
 

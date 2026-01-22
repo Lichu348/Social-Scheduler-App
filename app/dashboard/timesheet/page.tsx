@@ -98,6 +98,14 @@ async function getCurrentPayPeriod(organizationId: string): Promise<PayPeriod | 
   });
 }
 
+async function getOrganizationBreakRules(organizationId: string): Promise<string> {
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { breakRules: true },
+  });
+  return org?.breakRules || '[{"minHours":4,"breakMinutes":15},{"minHours":6,"breakMinutes":30},{"minHours":8,"breakMinutes":60}]';
+}
+
 async function getPayPeriodHours(userId: string, startDate: Date, endDate: Date): Promise<number> {
   const entries = await prisma.timeEntry.findMany({
     where: {
@@ -134,11 +142,12 @@ export default async function TimesheetPage({ searchParams }: TimesheetPageProps
   const params = await searchParams;
   const locationId = params.location;
 
-  const [entries, currentPayPeriod, locations, users] = await Promise.all([
+  const [entries, currentPayPeriod, locations, users, breakRules] = await Promise.all([
     getTimeEntries(session.user.id, session.user.organizationId, session.user.role, locationId),
     getCurrentPayPeriod(session.user.organizationId),
     getLocations(session.user.organizationId, session.user.id, session.user.role),
     getUsers(session.user.organizationId),
+    getOrganizationBreakRules(session.user.organizationId),
   ]);
 
   // Get hours for the current pay period (for the current user)
@@ -206,7 +215,7 @@ export default async function TimesheetPage({ searchParams }: TimesheetPageProps
               showAllOption={showAllOption}
             />
           )}
-          {isManager && <AddManualTimeEntryDialog users={users} />}
+          {isManager && <AddManualTimeEntryDialog users={users} breakRules={breakRules} />}
           {isManager && <ExportTimesheetDialog />}
         </div>
       </div>
