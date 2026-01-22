@@ -282,9 +282,9 @@ export default async function DashboardPage() {
 
       {/* Open Shifts Alert */}
       {data.openShiftsCount > 0 && (
-        <Card className="mb-8 border-green-200 bg-green-50/50">
+        <Card className="mb-8 border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center gap-4 pb-2">
-            <div className="p-2 rounded-full bg-green-100">
+            <div className="p-2 rounded-full bg-green-500/10">
               <Hand className="h-5 w-5 text-green-600" />
             </div>
             <div className="flex-1">
@@ -294,7 +294,7 @@ export default async function DashboardPage() {
               </CardDescription>
             </div>
             <Link href="/dashboard/open-shifts">
-              <Button variant="outline" className="border-green-300 text-green-700 hover:bg-green-100">
+              <Button variant="outline" className="border-green-500 text-green-700 hover:bg-green-500/10">
                 <Hand className="h-4 w-4 mr-2" />
                 View Open Shifts
               </Button>
@@ -305,9 +305,9 @@ export default async function DashboardPage() {
 
       {/* Starter Form Prompt - show if not submitted/reviewed */}
       {(!data.starterForm || data.starterForm.status === "INCOMPLETE") && (
-        <Card className="mb-8 border-amber-200 bg-amber-50/50">
+        <Card className="mb-8 border-l-4 border-l-amber-500">
           <CardHeader className="flex flex-row items-center gap-4 pb-2">
-            <div className="p-2 rounded-full bg-amber-100">
+            <div className="p-2 rounded-full bg-amber-500/10">
               <FileText className="h-5 w-5 text-amber-600" />
             </div>
             <div className="flex-1">
@@ -328,9 +328,9 @@ export default async function DashboardPage() {
 
       {/* Starter Form Submitted Status */}
       {data.starterForm?.status === "SUBMITTED" && (
-        <Card className="mb-8 border-blue-200 bg-blue-50/50">
+        <Card className="mb-8 border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center gap-4 pb-2">
-            <div className="p-2 rounded-full bg-blue-100">
+            <div className="p-2 rounded-full bg-blue-500/10">
               <AlertCircle className="h-5 w-5 text-blue-600" />
             </div>
             <div className="flex-1">
@@ -339,7 +339,7 @@ export default async function DashboardPage() {
                 Your form has been submitted and is waiting for manager review
               </CardDescription>
             </div>
-            <Badge variant="outline" className="bg-blue-100 text-blue-700">
+            <Badge variant="outline" className="border-blue-500 text-blue-700">
               Pending Review
             </Badge>
           </CardHeader>
@@ -348,9 +348,9 @@ export default async function DashboardPage() {
 
       {/* Starter Form Reviewed Status */}
       {data.starterForm?.status === "REVIEWED" && (
-        <Card className="mb-8 border-green-200 bg-green-50/50">
+        <Card className="mb-8 border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center gap-4 pb-2">
-            <div className="p-2 rounded-full bg-green-100">
+            <div className="p-2 rounded-full bg-green-500/10">
               <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
             <div className="flex-1">
@@ -359,7 +359,7 @@ export default async function DashboardPage() {
                 Your new starter form has been reviewed by your manager
               </CardDescription>
             </div>
-            <Badge variant="outline" className="bg-green-100 text-green-700">
+            <Badge variant="outline" className="border-green-500 text-green-700">
               Reviewed
             </Badge>
           </CardHeader>

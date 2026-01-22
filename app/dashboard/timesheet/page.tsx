@@ -222,45 +222,45 @@ export default async function TimesheetPage({ searchParams }: TimesheetPageProps
 
       {/* Pay Period Card */}
       {currentPayPeriod && (
-        <Card className="mb-6 border-green-200 bg-green-50/50">
+        <Card className="mb-6 border-l-4 border-l-green-500">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Banknote className="h-5 w-5 text-green-600" />
-              <CardTitle className="text-green-800">Current Pay Period</CardTitle>
+              <CardTitle>Current Pay Period</CardTitle>
             </div>
-            <CardDescription className="text-green-700">
+            <CardDescription>
               {currentPayPeriod.name}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center p-4 rounded-lg bg-white/70 border border-green-200">
-                <p className="text-3xl font-bold text-green-700">{payPeriodHours.toFixed(2)}</p>
-                <p className="text-sm text-green-600 font-medium">Hours This Period</p>
+              <div className="text-center p-4 rounded-lg bg-muted/50 border">
+                <p className="text-3xl font-bold text-green-600">{payPeriodHours.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground font-medium">Hours This Period</p>
               </div>
-              <div className="text-center p-4 rounded-lg bg-white/70 border border-green-200">
-                <div className="flex items-center justify-center gap-2 text-green-700">
+              <div className="text-center p-4 rounded-lg bg-muted/50 border">
+                <div className="flex items-center justify-center gap-2 text-muted-foreground">
                   <Calendar className="h-4 w-4" />
                   <span className="text-sm font-medium">Period Dates</span>
                 </div>
-                <p className="text-sm mt-1 text-green-800">
+                <p className="text-sm mt-1">
                   {formatDate(currentPayPeriod.startDate)} - {formatDate(currentPayPeriod.endDate)}
                 </p>
               </div>
               {currentPayPeriod.payDate && (
-                <div className="text-center p-4 rounded-lg bg-white/70 border border-green-200">
-                  <div className="flex items-center justify-center gap-2 text-green-700">
+                <div className="text-center p-4 rounded-lg bg-muted/50 border">
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
                     <Banknote className="h-4 w-4" />
                     <span className="text-sm font-medium">Pay Date</span>
                   </div>
-                  <p className="text-sm mt-1 text-green-800 font-medium">
+                  <p className="text-sm mt-1 font-medium">
                     {formatDate(currentPayPeriod.payDate)}
                   </p>
                 </div>
               )}
             </div>
             {currentPayPeriod.notes && (
-              <p className="text-sm text-green-700 mt-3 italic">
+              <p className="text-sm text-muted-foreground mt-3 italic">
                 {currentPayPeriod.notes}
               </p>
             )}
@@ -289,8 +289,8 @@ export default async function TimesheetPage({ searchParams }: TimesheetPageProps
               <p className="text-sm text-muted-foreground">Pending Approval</p>
             </div>
             {isManager && flaggedClockIns.length > 0 && (
-              <div className="text-center p-4 rounded-lg bg-amber-100">
-                <p className="text-3xl font-bold text-amber-700">{flaggedClockIns.length}</p>
+              <div className="text-center p-4 rounded-lg bg-muted/50 border border-amber-500">
+                <p className="text-3xl font-bold text-amber-600">{flaggedClockIns.length}</p>
                 <p className="text-sm text-amber-600">Flagged Clock-ins</p>
               </div>
             )}
@@ -309,7 +309,7 @@ export default async function TimesheetPage({ searchParams }: TimesheetPageProps
               {activeEntries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between p-4 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20"
+                  className="flex items-center justify-between p-4 rounded-lg border border-l-4 border-l-green-500"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -334,10 +334,10 @@ export default async function TimesheetPage({ searchParams }: TimesheetPageProps
 
       {/* Flagged Clock-ins (Manager only) */}
       {isManager && flaggedClockIns.length > 0 && (
-        <Card className="mb-6 border-amber-200">
-          <CardHeader className="bg-amber-50">
-            <CardTitle className="text-amber-800">Flagged Clock-ins</CardTitle>
-            <CardDescription className="text-amber-700">
+        <Card className="mb-6 border-l-4 border-l-amber-500">
+          <CardHeader>
+            <CardTitle className="text-amber-600">Flagged Clock-ins</CardTitle>
+            <CardDescription>
               Early or late clock-ins that require your approval
             </CardDescription>
           </CardHeader>
@@ -346,7 +346,7 @@ export default async function TimesheetPage({ searchParams }: TimesheetPageProps
               {flaggedClockIns.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between p-4 rounded-lg border border-amber-200 bg-amber-50/50"
+                  className="flex items-center justify-between p-4 rounded-lg border"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

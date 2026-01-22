@@ -65,19 +65,19 @@ async function getHolidayData(userId: string, organizationId: string, role: stri
 function getHolidayStatus(balance: number, usedHours: number) {
   const totalAllowance = balance + usedHours;
   if (totalAllowance === 0) {
-    return { color: "text-muted-foreground", bgColor: "bg-muted", label: "N/A" };
+    return { color: "text-muted-foreground", borderColor: "border-muted", label: "N/A" };
   }
 
   const remainingPercent = (balance / totalAllowance) * 100;
 
   if (balance <= 0) {
-    return { color: "text-red-600", bgColor: "bg-red-50", label: "Exhausted" };
+    return { color: "text-red-600", borderColor: "border-red-500", label: "Exhausted" };
   } else if (remainingPercent <= 20) {
-    return { color: "text-red-600", bgColor: "bg-red-50", label: "Low" };
+    return { color: "text-red-600", borderColor: "border-red-500", label: "Low" };
   } else if (remainingPercent <= 40) {
-    return { color: "text-amber-600", bgColor: "bg-amber-50", label: "Moderate" };
+    return { color: "text-amber-600", borderColor: "border-amber-500", label: "Moderate" };
   } else {
-    return { color: "text-green-600", bgColor: "bg-green-50", label: "Good" };
+    return { color: "text-green-600", borderColor: "border-green-500", label: "Good" };
   }
 }
 
@@ -177,14 +177,14 @@ export default async function HolidaysPage() {
                     key={user.id}
                     className={cn(
                       "p-3 rounded-lg border",
-                      status.bgColor
+                      status.borderColor
                     )}
                   >
                     <div className="flex items-center justify-between">
                       <p className="font-medium text-sm truncate">{user.name}</p>
                       <span className={cn(
-                        "text-xs font-medium px-2 py-0.5 rounded",
-                        status.bgColor,
+                        "text-xs font-medium px-2 py-0.5 rounded border",
+                        status.borderColor,
                         status.color
                       )}>
                         {status.label}

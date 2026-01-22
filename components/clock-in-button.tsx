@@ -140,7 +140,7 @@ export function ClockInButton({ activeTimeEntry, todayShift }: ClockInButtonProp
     return (
       <div className="space-y-3">
         {error && (
-          <div className="flex items-start gap-2 p-3 text-sm text-red-600 bg-red-50 rounded-md">
+          <div className="flex items-start gap-2 p-3 text-sm text-red-600 bg-muted/50 border border-red-500 rounded-md">
             <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -177,13 +177,13 @@ export function ClockInButton({ activeTimeEntry, todayShift }: ClockInButtonProp
   return (
     <div className="space-y-3">
       {error && (
-        <div className="flex items-start gap-2 p-3 text-sm text-red-600 bg-red-50 rounded-md">
+        <div className="flex items-start gap-2 p-3 text-sm text-red-600 bg-muted/50 border border-red-500 rounded-md">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
       {warning && (
-        <div className="flex items-start gap-2 p-3 text-sm text-yellow-700 bg-yellow-50 rounded-md">
+        <div className="flex items-start gap-2 p-3 text-sm text-amber-600 bg-muted/50 border border-amber-500 rounded-md">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{warning}</span>
         </div>

@@ -165,7 +165,7 @@ export function ComplianceStaffView({ userId, staffRole }: ComplianceStaffViewPr
     switch (item.complianceStatus) {
       case "completed":
         return (
-          <Badge className="gap-1 bg-green-100 text-green-800 hover:bg-green-100">
+          <Badge variant="outline" className="gap-1 border-green-500 text-green-600">
             <CheckCircle className="h-3 w-3" />
             Completed
           </Badge>
@@ -179,14 +179,14 @@ export function ComplianceStaffView({ userId, staffRole }: ComplianceStaffViewPr
         );
       case "pending_acknowledgment":
         return (
-          <Badge className="gap-1 bg-blue-100 text-blue-800 hover:bg-blue-100">
+          <Badge variant="outline" className="gap-1 border-blue-500 text-blue-600">
             <Clock className="h-3 w-3" />
             Needs Your Acknowledgment
           </Badge>
         );
       default:
         return (
-          <Badge className="gap-1 bg-amber-100 text-amber-800 hover:bg-amber-100">
+          <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600">
             <Clock className="h-3 w-3" />
             Pending
           </Badge>
@@ -202,13 +202,13 @@ export function ComplianceStaffView({ userId, staffRole }: ComplianceStaffViewPr
     <>
       {/* Alert for items needing attention */}
       {needsAttention.length > 0 && (
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+        <div className="mb-6 p-4 bg-muted/50 border-l-4 border-l-amber-500 rounded-lg flex items-center gap-3">
           <PenLine className="h-5 w-5 text-amber-600" />
           <div>
-            <p className="font-medium text-amber-800">
+            <p className="font-medium text-amber-600">
               You have {needsAttention.length} item{needsAttention.length > 1 ? "s" : ""} requiring attention
             </p>
-            <p className="text-sm text-amber-700">
+            <p className="text-sm text-muted-foreground">
               Please review and acknowledge the items below
             </p>
           </div>

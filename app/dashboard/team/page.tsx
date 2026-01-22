@@ -97,19 +97,19 @@ function getHolidayStatus(balance: number, usedHours: number) {
   // Calculate what percentage is remaining
   const totalAllowance = balance + usedHours;
   if (totalAllowance === 0) {
-    return { color: "text-muted-foreground", bgColor: "bg-muted", label: "N/A" };
+    return { color: "text-muted-foreground", bgColor: "bg-muted/50", label: "N/A" };
   }
 
   const remainingPercent = (balance / totalAllowance) * 100;
 
   if (balance <= 0) {
-    return { color: "text-red-600", bgColor: "bg-red-50", label: "Exhausted" };
+    return { color: "text-red-600", bgColor: "bg-muted/50 border border-red-300", label: "Exhausted" };
   } else if (remainingPercent <= 20) {
-    return { color: "text-red-600", bgColor: "bg-red-50", label: "Low" };
+    return { color: "text-red-600", bgColor: "bg-muted/50 border border-red-300", label: "Low" };
   } else if (remainingPercent <= 40) {
-    return { color: "text-amber-600", bgColor: "bg-amber-50", label: "Moderate" };
+    return { color: "text-amber-600", bgColor: "bg-muted/50 border border-amber-300", label: "Moderate" };
   } else {
-    return { color: "text-green-600", bgColor: "bg-green-50", label: "Good" };
+    return { color: "text-green-600", bgColor: "bg-muted/50 border border-green-300", label: "Good" };
   }
 }
 
@@ -144,10 +144,10 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
 
   const getStaffRoleBadge = (staffRole: string) => {
     const colors: Record<string, string> = {
-      DESK: "bg-blue-100 text-blue-800",
-      COACH: "bg-green-100 text-green-800",
-      SETTER: "bg-purple-100 text-purple-800",
-      INSTRUCTOR: "bg-orange-100 text-orange-800",
+      DESK: "border-blue-500 text-blue-600",
+      COACH: "border-green-500 text-green-600",
+      SETTER: "border-purple-500 text-purple-600",
+      INSTRUCTOR: "border-orange-500 text-orange-600",
     };
     const labels: Record<string, string> = {
       DESK: "Front Desk",
@@ -156,7 +156,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
       INSTRUCTOR: "Instructor",
     };
     return (
-      <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors[staffRole] || "bg-gray-100 text-gray-800"}`}>
+      <span className={`px-2 py-0.5 rounded border text-xs font-medium ${colors[staffRole] || "border-muted-foreground text-muted-foreground"}`}>
         {labels[staffRole] || staffRole}
       </span>
     );
@@ -251,17 +251,17 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center p-4 rounded-lg bg-green-50">
+              <div className="text-center p-4 rounded-lg bg-muted/50 border">
                 <p className="text-3xl font-bold text-green-600">{totalHolidayRemaining}h</p>
                 <p className="text-sm text-muted-foreground">Total Remaining</p>
               </div>
-              <div className="text-center p-4 rounded-lg bg-muted/50">
+              <div className="text-center p-4 rounded-lg bg-muted/50 border">
                 <p className="text-3xl font-bold">{users.length}</p>
                 <p className="text-sm text-muted-foreground">Staff Members</p>
               </div>
               <div className={cn(
-                "text-center p-4 rounded-lg",
-                usersWithLowHoliday.length > 0 ? "bg-amber-50" : "bg-green-50"
+                "text-center p-4 rounded-lg bg-muted/50 border",
+                usersWithLowHoliday.length > 0 ? "border-amber-500" : "border-green-500"
               )}>
                 <p className={cn(
                   "text-3xl font-bold",
@@ -273,11 +273,11 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
               </div>
             </div>
             {usersWithLowHoliday.length > 0 && (
-              <div className="mt-4 p-3 bg-amber-50 rounded-md">
-                <p className="text-sm font-medium text-amber-800">
+              <div className="mt-4 p-3 bg-muted/50 border border-amber-500 rounded-md">
+                <p className="text-sm font-medium text-amber-600">
                   Staff with low holiday balance:
                 </p>
-                <p className="text-sm text-amber-700 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {usersWithLowHoliday.map(u => u.name).join(", ")}
                 </p>
               </div>
