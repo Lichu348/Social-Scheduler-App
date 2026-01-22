@@ -82,13 +82,8 @@ export async function POST(req: Request) {
       locationId,
       expectedCash,
       expectedPdq,
-      expectedOnline,
-      expectedZRead,
       actualCash,
       actualPdq,
-      actualOnline,
-      actualZRead,
-      giftCardsRedeemed,
       notes,
       status,
     } = body;
@@ -117,7 +112,7 @@ export async function POST(req: Request) {
 
     // Calculate discrepancies
     const cashDisc = (actualCash || 0) - (expectedCash || 0);
-    const cardDisc = (actualPdq || 0) + (actualOnline || 0) - (expectedPdq || 0) - (expectedOnline || 0);
+    const cardDisc = (actualPdq || 0) - (expectedPdq || 0);
     const totalDisc = cashDisc + cardDisc;
 
     // Parse date and set to start of day
@@ -150,13 +145,13 @@ export async function POST(req: Request) {
         locationId,
         expectedCash: expectedCash || 0,
         expectedPdq: expectedPdq || 0,
-        expectedOnline: expectedOnline || 0,
-        expectedZRead: expectedZRead || 0,
+        expectedOnline: 0,
+        expectedZRead: 0,
         actualCash: actualCash || 0,
         actualPdq: actualPdq || 0,
-        actualOnline: actualOnline || 0,
-        actualZRead: actualZRead || 0,
-        giftCardsRedeemed: giftCardsRedeemed || 0,
+        actualOnline: 0,
+        actualZRead: 0,
+        giftCardsRedeemed: 0,
         cashDiscrepancy: cashDisc,
         cardDiscrepancy: cardDisc,
         totalDiscrepancy: totalDisc,

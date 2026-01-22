@@ -33,13 +33,8 @@ interface CashUpSession {
   location: Location;
   expectedCash: number;
   expectedPdq: number;
-  expectedOnline: number;
-  expectedZRead: number;
   actualCash: number;
   actualPdq: number;
-  actualOnline: number;
-  actualZRead: number;
-  giftCardsRedeemed: number;
   cashDiscrepancy: number;
   cardDiscrepancy: number;
   totalDiscrepancy: number;
@@ -67,13 +62,8 @@ export function CashUpForm() {
     locationId: "",
     expectedCash: "",
     expectedPdq: "",
-    expectedOnline: "",
-    expectedZRead: "",
     actualCash: "",
     actualPdq: "",
-    actualOnline: "",
-    actualZRead: "",
-    giftCardsRedeemed: "",
     notes: "",
   });
 
@@ -122,13 +112,8 @@ export function CashUpForm() {
       locationId: filterLocationId || "",
       expectedCash: "",
       expectedPdq: "",
-      expectedOnline: "",
-      expectedZRead: "",
       actualCash: "",
       actualPdq: "",
-      actualOnline: "",
-      actualZRead: "",
-      giftCardsRedeemed: "",
       notes: "",
     });
     setError(null);
@@ -148,16 +133,13 @@ export function CashUpForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
+          date: formData.date,
+          locationId: formData.locationId,
+          notes: formData.notes,
           expectedCash: parseFloat(formData.expectedCash) || 0,
           expectedPdq: parseFloat(formData.expectedPdq) || 0,
-          expectedOnline: parseFloat(formData.expectedOnline) || 0,
-          expectedZRead: parseFloat(formData.expectedZRead) || 0,
           actualCash: parseFloat(formData.actualCash) || 0,
           actualPdq: parseFloat(formData.actualPdq) || 0,
-          actualOnline: parseFloat(formData.actualOnline) || 0,
-          actualZRead: parseFloat(formData.actualZRead) || 0,
-          giftCardsRedeemed: parseFloat(formData.giftCardsRedeemed) || 0,
           status: submit ? "SUBMITTED" : "DRAFT",
         }),
       });
@@ -181,13 +163,11 @@ export function CashUpForm() {
   // Calculate live discrepancies
   const expectedCash = parseFloat(formData.expectedCash) || 0;
   const expectedPdq = parseFloat(formData.expectedPdq) || 0;
-  const expectedOnline = parseFloat(formData.expectedOnline) || 0;
   const actualCash = parseFloat(formData.actualCash) || 0;
   const actualPdq = parseFloat(formData.actualPdq) || 0;
-  const actualOnline = parseFloat(formData.actualOnline) || 0;
 
   const cashDiscrepancy = actualCash - expectedCash;
-  const cardDiscrepancy = (actualPdq + actualOnline) - (expectedPdq + expectedOnline);
+  const cardDiscrepancy = actualPdq - expectedPdq;
   const totalDiscrepancy = cashDiscrepancy + cardDiscrepancy;
 
   const getStatusBadge = (status: string) => {
@@ -290,7 +270,7 @@ export function CashUpForm() {
                         </span>
                         {getStatusBadge(session.status)}
                       </div>
-                      <div className="grid grid-cols-4 gap-4 mt-2 text-sm">
+                      <div className="grid grid-cols-3 gap-4 mt-2 text-sm">
                         <div>
                           <span className="text-muted-foreground">Cash:</span>{" "}
                           <span className="font-medium">{formatCurrency(session.actualCash)}</span>
@@ -301,10 +281,9 @@ export function CashUpForm() {
                         <div>
                           <span className="text-muted-foreground">PDQ:</span>{" "}
                           <span className="font-medium">{formatCurrency(session.actualPdq)}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Online:</span>{" "}
-                          <span className="font-medium">{formatCurrency(session.actualOnline)}</span>
+                          <span className={cn("ml-1", getDiscrepancyColor(session.cardDiscrepancy))}>
+                            ({session.cardDiscrepancy >= 0 ? "+" : ""}{formatCurrency(session.cardDiscrepancy)})
+                          </span>
                         </div>
                         <div className={cn("font-medium", getDiscrepancyColor(session.totalDiscrepancy))}>
                           {session.totalDiscrepancy === 0 ? (
@@ -374,8 +353,8 @@ export function CashUpForm() {
 
             {/* Expected Values */}
             <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-              <Label className="text-base font-semibold">Expected Values</Label>
-              <div className="grid grid-cols-4 gap-3">
+              <Label className="text-base font-semibold">Expected Values (from till)</Label>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="expectedCash" className="text-xs">Cash</Label>
                   <Input
@@ -398,35 +377,13 @@ export function CashUpForm() {
                     onChange={(e) => setFormData({ ...formData, expectedPdq: e.target.value })}
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="expectedOnline" className="text-xs">Online</Label>
-                  <Input
-                    id="expectedOnline"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.expectedOnline}
-                    onChange={(e) => setFormData({ ...formData, expectedOnline: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="expectedZRead" className="text-xs">Z-Read</Label>
-                  <Input
-                    id="expectedZRead"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.expectedZRead}
-                    onChange={(e) => setFormData({ ...formData, expectedZRead: e.target.value })}
-                  />
-                </div>
               </div>
             </div>
 
             {/* Actual Values */}
             <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg space-y-3">
               <Label className="text-base font-semibold">Actual Values (Counted)</Label>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="actualCash" className="text-xs">Cash</Label>
                   <Input
@@ -449,43 +406,7 @@ export function CashUpForm() {
                     onChange={(e) => setFormData({ ...formData, actualPdq: e.target.value })}
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="actualOnline" className="text-xs">Online</Label>
-                  <Input
-                    id="actualOnline"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.actualOnline}
-                    onChange={(e) => setFormData({ ...formData, actualOnline: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="actualZRead" className="text-xs">Z-Read</Label>
-                  <Input
-                    id="actualZRead"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.actualZRead}
-                    onChange={(e) => setFormData({ ...formData, actualZRead: e.target.value })}
-                  />
-                </div>
               </div>
-            </div>
-
-            {/* Gift Cards */}
-            <div className="space-y-2">
-              <Label htmlFor="giftCards">Gift Cards Redeemed</Label>
-              <Input
-                id="giftCards"
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.giftCardsRedeemed}
-                onChange={(e) => setFormData({ ...formData, giftCardsRedeemed: e.target.value })}
-                className="max-w-[200px]"
-              />
             </div>
 
             {/* Discrepancies Summary */}
