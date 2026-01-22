@@ -113,7 +113,7 @@ export function LogCashDialog({ locations = [] }: LogCashDialogProps) {
           Log Cash
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Log Cash Transaction</DialogTitle>
           <DialogDescription>

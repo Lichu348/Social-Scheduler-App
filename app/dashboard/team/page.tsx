@@ -12,6 +12,7 @@ import { MonthlySalaryEditor } from "@/components/monthly-salary-editor";
 import { PaymentTypeSelector } from "@/components/payment-type-selector";
 import { EditUserDialog } from "@/components/edit-user-dialog";
 import { HolidayAllowanceDialog } from "@/components/holiday-allowance-dialog";
+import { ResetPasswordDialog } from "@/components/reset-password-dialog";
 import { UserPlus, Palmtree } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,8 @@ async function getTeamData(organizationId: string) {
         staffRole: true,
         paymentType: true,
         monthlySalary: true,
+        contractedHours: true,
+        sortOrder: true,
         phone: true,
         holidayBalance: true,
         createdAt: true,
@@ -45,7 +48,7 @@ async function getTeamData(organizationId: string) {
           },
         },
       },
-      orderBy: [{ role: "asc" }, { name: "asc" }],
+      orderBy: [{ sortOrder: "asc" }, { role: "asc" }, { name: "asc" }],
     }),
     prisma.location.findMany({
       where: { organizationId, isActive: true },
@@ -360,6 +363,14 @@ export default async function TeamPage() {
                         userId={user.id}
                         currentName={user.name}
                         currentEmail={user.email}
+                        currentContractedHours={user.contractedHours}
+                        currentSortOrder={user.sortOrder}
+                      />
+                    )}
+                    {isAdmin && user.id !== session.user.id && (
+                      <ResetPasswordDialog
+                        userId={user.id}
+                        userName={user.name}
                       />
                     )}
                     {isManager && user.id !== session.user.id && (

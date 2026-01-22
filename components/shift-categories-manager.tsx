@@ -232,7 +232,7 @@ export function ShiftCategoriesManager() {
       {/* Add Form */}
       {showAdd ? (
         <form onSubmit={handleAdd} className="space-y-3 p-3 border rounded-md bg-muted/30">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="catName">Name</Label>
               <Input

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { hash } from "bcryptjs";
+import { createUserSchema } from "@/lib/schemas";
+import { ValidationError } from "@/lib/errors";
+import { handleApiError } from "@/lib/api-utils";
 
 export async function GET() {
   try {
@@ -52,14 +55,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { name, email, password, role, staffRole, primaryLocationId } = await req.json();
-
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: "Name, email, and password are required" },
-        { status: 400 }
-      );
+    const body = await req.json();
+    const result = createUserSchema.safeParse(body);
+    if (!result.success) {
+      throw new ValidationError(result.error.issues[0].message);
     }
+
+    const { name, password, role, staffRole, primaryLocationId } = result.data;
+    const email = result.data.email.toLowerCase().trim();
 
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
@@ -96,10 +99,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(user);
   } catch (error) {
-    console.error("Add user error:", error);
-    return NextResponse.json(
-      { error: "Failed to add user" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

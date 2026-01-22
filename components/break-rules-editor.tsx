@@ -14,15 +14,17 @@ interface BreakRule {
 
 interface BreakRulesEditorProps {
   breakRules: string;
+  breakCalculationMode?: string;
 }
 
 // Preset shift hour thresholds
 const HOUR_THRESHOLDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-export function BreakRulesEditor({ breakRules }: BreakRulesEditorProps) {
+export function BreakRulesEditor({ breakRules, breakCalculationMode = "PER_SHIFT" }: BreakRulesEditorProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [calculationMode, setCalculationMode] = useState(breakCalculationMode);
   const [rules, setRules] = useState<BreakRule[]>(() => {
     try {
       const parsed = JSON.parse(breakRules);
@@ -57,7 +59,10 @@ export function BreakRulesEditor({ breakRules }: BreakRulesEditorProps) {
       const res = await fetch("/api/settings/organization", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ breakRules: JSON.stringify(rules) }),
+        body: JSON.stringify({
+          breakRules: JSON.stringify(rules),
+          breakCalculationMode: calculationMode,
+        }),
       });
 
       if (res.ok) {
@@ -109,11 +114,51 @@ export function BreakRulesEditor({ breakRules }: BreakRulesEditorProps) {
         </div>
       )}
 
+      {/* Calculation Mode */}
+      <div className="space-y-3 pb-4 border-b">
+        <Label className="text-sm font-medium">Break Calculation Mode</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setCalculationMode("PER_SHIFT")}
+            className={`p-4 rounded-lg border-2 text-left transition-colors ${
+              calculationMode === "PER_SHIFT"
+                ? "border-primary bg-primary/5"
+                : "border-muted hover:border-muted-foreground/50"
+            }`}
+          >
+            <p className="font-medium">Per Shift</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Breaks calculated for each individual shift based on its duration
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCalculationMode("PER_DAY")}
+            className={`p-4 rounded-lg border-2 text-left transition-colors ${
+              calculationMode === "PER_DAY"
+                ? "border-primary bg-primary/5"
+                : "border-muted hover:border-muted-foreground/50"
+            }`}
+          >
+            <p className="font-medium">Per Day</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Breaks calculated based on total daily hours (e.g., 2h + 3h = 5h total)
+            </p>
+          </button>
+        </div>
+        {calculationMode === "PER_DAY" && (
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+            Per-day mode sums all shifts for each staff member on the same day and applies break rules to the total.
+          </p>
+        )}
+      </div>
+
       {/* Rules Editor */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
           <Coffee className="h-4 w-4" />
-          <span>Configure break time for each shift duration threshold</span>
+          <span>Configure break time for each {calculationMode === "PER_DAY" ? "daily hours" : "shift duration"} threshold</span>
         </div>
 
         {sortedRules.length === 0 ? (

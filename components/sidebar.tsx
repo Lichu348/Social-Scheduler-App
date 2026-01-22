@@ -30,6 +30,7 @@ import {
   ChevronRight,
   Package,
   ListTodo,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBadge } from "@/components/notification-badge";
@@ -71,7 +72,7 @@ const navigation = [
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
-  const { collapsed, toggleCollapsed } = useSidebar();
+  const { collapsed, toggleCollapsed, mobileOpen, setMobileOpen } = useSidebar();
 
   const filteredNavigation = navigation.filter((item) => {
     if ('adminOnly' in item && item.adminOnly) {
@@ -83,7 +84,7 @@ export function Sidebar({ user }: SidebarProps) {
     return true;
   });
 
-  return (
+  const sidebarContent = (
     <div
       className={cn(
         "flex h-screen flex-col bg-card border-r transition-all duration-200",
@@ -134,6 +135,7 @@ export function Sidebar({ user }: SidebarProps) {
           const linkElement = (
             <Link
               href={item.href}
+              onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex items-center rounded-lg py-2 text-sm font-medium transition-colors",
                 collapsed ? "justify-center px-2" : "gap-3 px-3",
@@ -238,5 +240,41 @@ export function Sidebar({ user }: SidebarProps) {
         )}
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile close button */}
+      {mobileOpen && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed top-4 right-4 z-50 md:hidden bg-card"
+          onClick={() => setMobileOpen(false)}
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      )}
+
+      {/* Sidebar - hidden on mobile unless open */}
+      <div
+        className={cn(
+          // Mobile: fixed overlay, hidden by default
+          "fixed inset-y-0 left-0 z-50 md:relative md:z-auto",
+          "transform transition-transform duration-200 ease-in-out md:transform-none",
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
+        {sidebarContent}
+      </div>
+    </>
   );
 }

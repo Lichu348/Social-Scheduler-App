@@ -146,14 +146,14 @@ export function ExportTimesheetDialog() {
           Export to Excel
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Export Timesheet</DialogTitle>
           <DialogDescription>
             Select a date range to export time entries for payroll
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           {error && (
             <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md">
               {error}
@@ -199,7 +199,7 @@ export function ExportTimesheetDialog() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startDate">Start Date</Label>
               <Input
@@ -250,7 +250,7 @@ export function ExportTimesheetDialog() {
             </ul>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 pt-4">
           <Button
             type="button"
             variant="outline"

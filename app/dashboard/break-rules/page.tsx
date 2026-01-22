@@ -8,7 +8,7 @@ async function getBreakRulesData(organizationId: string) {
   const [organization, locations] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: organizationId },
-      select: { breakRules: true },
+      select: { breakRules: true, breakCalculationMode: true },
     }),
     prisma.location.findMany({
       where: { organizationId, isActive: true },
@@ -19,6 +19,7 @@ async function getBreakRulesData(organizationId: string) {
 
   return {
     organizationBreakRules: organization?.breakRules || "[]",
+    organizationBreakCalculationMode: organization?.breakCalculationMode || "PER_SHIFT",
     locations,
   };
 }
@@ -32,7 +33,7 @@ export default async function BreakRulesPage() {
     redirect("/dashboard");
   }
 
-  const { organizationBreakRules, locations } = await getBreakRulesData(
+  const { organizationBreakRules, organizationBreakCalculationMode, locations } = await getBreakRulesData(
     session.user.organizationId
   );
 
@@ -48,6 +49,7 @@ export default async function BreakRulesPage() {
       <div className="space-y-6">
         <BreakRulesWithLocations
           organizationBreakRules={organizationBreakRules}
+          organizationBreakCalculationMode={organizationBreakCalculationMode}
           locations={locations}
         />
 
@@ -57,19 +59,35 @@ export default async function BreakRulesPage() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-3">
             <p>
-              When a shift is created, the system automatically calculates the unpaid break time based on
-              the rules you configure. Location-specific rules override organization defaults.
+              The system automatically calculates unpaid break time based on the rules you configure.
+              Location-specific rules override organization defaults.
             </p>
-            <p>
-              <strong>Example:</strong> If you set 3+ hours = 15 min and 6+ hours = 30 min, then:
-            </p>
-            <ul className="list-disc list-inside ml-4 space-y-1">
-              <li>A 2-hour shift gets 0 min break</li>
-              <li>A 4-hour shift gets 15 min break (matches 3+ hours rule)</li>
-              <li>A 7-hour shift gets 30 min break (matches 6+ hours rule)</li>
-              <li>An 8-hour shift gets 30 min break (matches 6+ hours rule)</li>
-            </ul>
-            <p className="pt-2">
+
+            <div className="pt-2 border-t">
+              <p className="font-medium text-foreground mb-2">Per Shift Mode (Default)</p>
+              <p>
+                Each shift is evaluated independently. If you set 3+ hours = 15 min and 6+ hours = 30 min:
+              </p>
+              <ul className="list-disc list-inside ml-4 space-y-1 mt-2">
+                <li>A 2-hour shift gets 0 min break</li>
+                <li>A 4-hour shift gets 15 min break</li>
+                <li>A 7-hour shift gets 30 min break</li>
+              </ul>
+            </div>
+
+            <div className="pt-2 border-t">
+              <p className="font-medium text-foreground mb-2">Per Day Mode</p>
+              <p>
+                All shifts for a staff member on the same day are summed, then break rules apply to the total.
+                This is useful when staff work multiple short shifts that together qualify for a longer break.
+              </p>
+              <ul className="list-disc list-inside ml-4 space-y-1 mt-2">
+                <li>A 2-hour morning shift + 3-hour evening shift = 5 hours total</li>
+                <li>With 5+ hours = 30 min rule, the day gets a 30 min break instead of 0+15</li>
+              </ul>
+            </div>
+
+            <p className="pt-2 border-t">
               Break time is subtracted from shift duration when calculating paid hours on timesheets and exports.
             </p>
           </CardContent>

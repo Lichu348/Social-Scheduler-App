@@ -22,13 +22,28 @@ export async function GET(req: Request) {
       );
     }
 
+    // For employees, restrict to their assigned locations
+    let allowedLocationIds: string[] | null = null;
+    if (session.user.role === "EMPLOYEE") {
+      const staffLocations = await prisma.locationStaff.findMany({
+        where: { userId: session.user.id },
+        select: { locationId: true },
+      });
+      allowedLocationIds = staffLocations.map((sl) => sl.locationId);
+
+      // If no locations assigned, return empty
+      if (allowedLocationIds.length === 0) {
+        return NextResponse.json([]);
+      }
+    }
+
     const weekStartDate = new Date(weekStart);
     weekStartDate.setHours(0, 0, 0, 0);
 
     const where: {
       organizationId: string;
       weekStart: Date;
-      locationId?: string | null;
+      locationId?: string | null | { in: string[] };
       dueDate?: { gte: Date; lt: Date };
     } = {
       organizationId: session.user.organizationId,
@@ -36,7 +51,14 @@ export async function GET(req: Request) {
     };
 
     if (locationId) {
+      // If a specific location is requested, verify employee has access
+      if (allowedLocationIds && !allowedLocationIds.includes(locationId)) {
+        return NextResponse.json({ error: "Access denied to this location" }, { status: 403 });
+      }
       where.locationId = locationId;
+    } else if (allowedLocationIds) {
+      // Filter to only assigned locations for employees
+      where.locationId = { in: allowedLocationIds };
     }
 
     // Filter by specific date if provided

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { checkUserCertifications, formatCertificationError } from "@/lib/certification-utils";
+import { createShiftSchema } from "@/lib/schemas";
+import { ValidationError } from "@/lib/errors";
+import { handleApiError } from "@/lib/api-utils";
 
 export async function GET(req: Request) {
   try {
@@ -92,14 +95,13 @@ export async function POST(req: Request) {
       );
     }
 
-    const { title, description, startTime, endTime, assignedToId, categoryId, locationId } = await req.json();
-
-    if (!title || !startTime || !endTime) {
-      return NextResponse.json(
-        { error: "Title, start time, and end time are required" },
-        { status: 400 }
-      );
+    const body = await req.json();
+    const result = createShiftSchema.safeParse(body);
+    if (!result.success) {
+      throw new ValidationError(result.error.issues[0].message);
     }
+
+    const { title, description, startTime, endTime, assignedToId, categoryId, locationId } = result.data;
 
     // Check certifications if assigning to a user
     if (assignedToId) {
@@ -173,10 +175,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(shift);
   } catch (error) {
-    console.error("Create shift error:", error);
-    return NextResponse.json(
-      { error: "Failed to create shift" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

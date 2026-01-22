@@ -14,17 +14,42 @@ export async function GET(req: Request) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
+    // For employees, restrict to their assigned locations
+    let allowedLocationIds: string[] | null = null;
+    if (session.user.role === "EMPLOYEE") {
+      const staffLocations = await prisma.locationStaff.findMany({
+        where: { userId: session.user.id },
+        select: { locationId: true },
+      });
+      allowedLocationIds = staffLocations.map((sl) => sl.locationId);
+
+      // If no locations assigned, return empty
+      if (allowedLocationIds.length === 0) {
+        return NextResponse.json({
+          transactions: [],
+          runningTotal: 0,
+        });
+      }
+    }
+
     // Build where clause
     const where: {
       organizationId: string;
-      locationId?: string;
+      locationId?: string | { in: string[] };
       createdAt?: { gte?: Date; lte?: Date };
     } = {
       organizationId: session.user.organizationId,
     };
 
     if (locationId) {
+      // If a specific location is requested, verify employee has access
+      if (allowedLocationIds && !allowedLocationIds.includes(locationId)) {
+        return NextResponse.json({ error: "Access denied to this location" }, { status: 403 });
+      }
       where.locationId = locationId;
+    } else if (allowedLocationIds) {
+      // Filter to only assigned locations for employees
+      where.locationId = { in: allowedLocationIds };
     }
 
     if (startDate || endDate) {
@@ -52,12 +77,20 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Calculate running total (all transactions for this org/location)
+    // Calculate running total (all transactions for this org/location, respecting employee location restrictions)
+    const totalWhere: {
+      organizationId: string;
+      locationId?: string | { in: string[] };
+    } = {
+      organizationId: session.user.organizationId,
+    };
+    if (locationId) {
+      totalWhere.locationId = locationId;
+    } else if (allowedLocationIds) {
+      totalWhere.locationId = { in: allowedLocationIds };
+    }
     const allTransactions = await prisma.cashTransaction.findMany({
-      where: {
-        organizationId: session.user.organizationId,
-        ...(locationId ? { locationId } : {}),
-      },
+      where: totalWhere,
       select: { amount: true },
     });
 

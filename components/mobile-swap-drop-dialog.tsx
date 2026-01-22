@@ -79,7 +79,7 @@ export function MobileSwapDropDialog({ shiftId, shiftTitle, shiftDate }: MobileS
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {requestType === null ? "Shift Options" : requestType === "swap" ? "Request Swap" : "Request Drop"}

@@ -98,7 +98,7 @@ export function SettingSignoffDetail({ signoff, isAdmin }: SettingSignoffDetailP
           </div>
 
           {/* Setters */}
-          <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
             <div>
               <p className="text-sm text-muted-foreground">External Setter</p>
               <p className="font-medium">{signoff.externalSetterName}</p>

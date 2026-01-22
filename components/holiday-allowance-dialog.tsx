@@ -78,15 +78,15 @@ export function HolidayAllowanceDialog({
           <Palmtree className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
+      <DialogContent className="max-w-sm max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Holiday Allowance</DialogTitle>
           <DialogDescription>
             Update holiday balance for {userName}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="balance">Current Balance (hours)</Label>
             <Input
@@ -138,7 +138,7 @@ export function HolidayAllowanceDialog({
           )}
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex-shrink-0 flex justify-end gap-2 pt-4">
           <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
             Cancel
           </Button>

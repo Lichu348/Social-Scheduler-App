@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createLocationSchema } from "@/lib/schemas";
+import { ValidationError } from "@/lib/errors";
+import { handleApiError } from "@/lib/api-utils";
 
 export async function GET() {
   try {
@@ -40,14 +43,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { name, address, latitude, longitude, clockInRadiusMetres, breakRules } = await req.json();
-
-    if (!name) {
-      return NextResponse.json(
-        { error: "Location name is required" },
-        { status: 400 }
-      );
+    const body = await req.json();
+    const result = createLocationSchema.safeParse(body);
+    if (!result.success) {
+      throw new ValidationError(result.error.issues[0].message);
     }
+
+    const { name, address, latitude, longitude, clockInRadiusMetres, breakRules } = result.data;
 
     const location = await prisma.location.create({
       data: {
@@ -63,10 +65,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(location);
   } catch (error) {
-    console.error("Create location error:", error);
-    return NextResponse.json(
-      { error: "Failed to create location" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

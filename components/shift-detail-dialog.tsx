@@ -196,8 +196,8 @@ export function ShiftDetailDialog({
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             {shift.title}
             {shift.isOpen && <Badge variant="warning">Open Shift</Badge>}
@@ -205,7 +205,7 @@ export function ShiftDetailDialog({
           <DialogDescription>Shift details and actions</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           <div className="flex items-center gap-3 text-sm">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span>{formatDate(shift.startTime)}</span>
@@ -306,7 +306,7 @@ export function ShiftDetailDialog({
           )}
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex-shrink-0 flex-col sm:flex-row gap-2 pt-4">
           {shift.isOpen && !isManager && (
             <Button onClick={handlePickupShift} disabled={loading} className="w-full sm:w-auto">
               Pick Up Shift

@@ -42,6 +42,8 @@ interface User {
   email: string;
   role: string;
   staffRole?: string;
+  contractedHours?: number | null;
+  sortOrder?: number;
 }
 
 interface Availability {
@@ -104,6 +106,8 @@ interface ScheduleGridWithDndProps {
   locations?: Location[];
   holidays?: Holiday[];
   events?: Event[];
+  breakRules?: string;
+  breakCalculationMode?: string;
 }
 
 export function ScheduleGridWithDnd({
@@ -118,6 +122,8 @@ export function ScheduleGridWithDnd({
   locations = [],
   holidays = [],
   events = [],
+  breakRules = "[]",
+  breakCalculationMode = "PER_SHIFT",
 }: ScheduleGridWithDndProps) {
   const [mounted, setMounted] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<ShiftTemplate | null>(null);
@@ -193,6 +199,8 @@ export function ScheduleGridWithDnd({
         locations={locations}
         holidays={holidays}
         events={events}
+        breakRules={breakRules}
+        breakCalculationMode={breakCalculationMode}
       />
     );
   }
@@ -219,6 +227,8 @@ export function ScheduleGridWithDnd({
             locations={locations}
             holidays={holidays}
             events={events}
+            breakRules={breakRules}
+            breakCalculationMode={breakCalculationMode}
           />
         </div>
       </div>

@@ -119,8 +119,8 @@ export function ReviewSpendDialog({ request }: ReviewSpendDialogProps) {
           Review
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Review Spend Request</DialogTitle>
           <DialogDescription>
             Review and approve or reject this spending request.
@@ -128,12 +128,12 @@ export function ReviewSpendDialog({ request }: ReviewSpendDialogProps) {
         </DialogHeader>
 
         {error && (
-          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
+          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive flex-shrink-0">
             {error}
           </div>
         )}
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 overflow-y-auto space-y-4 py-4">
           {/* Request Details */}
           <div className="p-4 rounded-lg border bg-muted/30 space-y-3">
             <div className="flex items-center gap-2">
@@ -192,7 +192,7 @@ export function ReviewSpendDialog({ request }: ReviewSpendDialogProps) {
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="flex-shrink-0 gap-2 pt-4">
           <Button
             type="button"
             variant="outline"

@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 interface ShiftCategory {
   id: string;
@@ -31,6 +32,13 @@ interface Location {
 interface User {
   id: string;
   name: string;
+}
+
+interface ShiftSegment {
+  id?: string;
+  startTime: string; // HH:MM format for input
+  endTime: string;
+  categoryId: string;
 }
 
 interface Shift {
@@ -65,6 +73,36 @@ export function EditShiftDialog({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSegments, setShowSegments] = useState(false);
+  const [segments, setSegments] = useState<ShiftSegment[]>([]);
+  const [loadingSegments, setLoadingSegments] = useState(false);
+
+  // Load existing segments when dialog opens
+  useEffect(() => {
+    const fetchSegments = async () => {
+      setLoadingSegments(true);
+      try {
+        const res = await fetch(`/api/shifts/${shift.id}/segments`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length > 0) {
+            setShowSegments(true);
+            setSegments(data.map((seg: { id: string; startTime: string; endTime: string; categoryId: string }) => ({
+              id: seg.id,
+              startTime: new Date(seg.startTime).toTimeString().slice(0, 5),
+              endTime: new Date(seg.endTime).toTimeString().slice(0, 5),
+              categoryId: seg.categoryId,
+            })));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load segments:", err);
+      } finally {
+        setLoadingSegments(false);
+      }
+    };
+    fetchSegments();
+  }, [shift.id]);
 
   // Format dates for input fields
   const formatDateForInput = (date: Date) => {
@@ -125,6 +163,34 @@ export function EditShiftDialog({
         return;
       }
 
+      // Save segments if any are defined
+      if (showSegments && segments.length > 0) {
+        const segmentsToSave = segments.map((seg) => ({
+          startTime: new Date(`${formData.date}T${seg.startTime}`).toISOString(),
+          endTime: new Date(`${formData.date}T${seg.endTime}`).toISOString(),
+          categoryId: seg.categoryId,
+        }));
+
+        const segRes = await fetch(`/api/shifts/${shift.id}/segments`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ segments: segmentsToSave }),
+        });
+
+        if (!segRes.ok) {
+          const data = await segRes.json();
+          setError(data.error || "Failed to save shift segments");
+          return;
+        }
+      } else if (!showSegments) {
+        // Clear segments if split shift is disabled
+        await fetch(`/api/shifts/${shift.id}/segments`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ segments: [] }),
+        });
+      }
+
       router.refresh();
       onSave();
     } catch (err) {
@@ -149,17 +215,41 @@ export function EditShiftDialog({
     ...locations.map((l) => ({ value: l.id, label: l.name })),
   ];
 
+  const addSegment = () => {
+    const lastSegment = segments[segments.length - 1];
+    const newStartTime = lastSegment ? lastSegment.endTime : formData.startTime;
+    setSegments([
+      ...segments,
+      {
+        startTime: newStartTime,
+        endTime: formData.endTime,
+        categoryId: categories[0]?.id || "",
+      },
+    ]);
+  };
+
+  const removeSegment = (index: number) => {
+    setSegments(segments.filter((_, i) => i !== index));
+  };
+
+  const updateSegment = (index: number, field: keyof ShiftSegment, value: string) => {
+    const updated = [...segments];
+    updated[index] = { ...updated[index], [field]: value };
+    setSegments(updated);
+  };
+
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Edit Shift</DialogTitle>
           <DialogDescription>
             Make changes to the shift details
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto space-y-4 py-4">
           {error && (
             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
               {error}
@@ -187,7 +277,7 @@ export function EditShiftDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startTime">Start Time</Label>
               <Input
@@ -237,7 +327,95 @@ export function EditShiftDialog({
               options={categoryOptions}
               value={formData.categoryId}
               onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+              disabled={showSegments && segments.length > 0}
             />
+            {showSegments && segments.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Using split categories below instead
+              </p>
+            )}
+          </div>
+
+          {/* Split Shift Segments */}
+          <div className="border rounded-lg p-3 space-y-3">
+            <button
+              type="button"
+              className="flex items-center justify-between w-full text-sm font-medium"
+              onClick={() => setShowSegments(!showSegments)}
+            >
+              <span>Split Shift by Category</span>
+              {showSegments ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+
+            {showSegments && (
+              <div className="space-y-3 pt-2 border-t">
+                <p className="text-xs text-muted-foreground">
+                  Define time segments with different categories (e.g., CRM 9-13, DM 13-17)
+                </p>
+
+                {loadingSegments ? (
+                  <p className="text-sm text-muted-foreground">Loading segments...</p>
+                ) : (
+                  <>
+                    {segments.map((segment, index) => (
+                      <div key={index} className="flex items-end gap-2 p-2 bg-muted/50 rounded">
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-xs">Start</Label>
+                          <Input
+                            type="time"
+                            value={segment.startTime}
+                            onChange={(e) => updateSegment(index, "startTime", e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-xs">End</Label>
+                          <Input
+                            type="time"
+                            value={segment.endTime}
+                            onChange={(e) => updateSegment(index, "endTime", e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-xs">Category</Label>
+                          <Select
+                            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                            value={segment.categoryId}
+                            onChange={(e) => updateSegment(index, "categoryId", e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => removeSegment(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addSegment}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Segment
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -260,8 +438,9 @@ export function EditShiftDialog({
               rows={2}
             />
           </div>
+          </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>

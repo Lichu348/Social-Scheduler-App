@@ -22,17 +22,20 @@ interface Location {
 
 interface BreakRulesWithLocationsProps {
   organizationBreakRules: string;
+  organizationBreakCalculationMode?: string;
   locations: Location[];
 }
 
 export function BreakRulesWithLocations({
   organizationBreakRules,
+  organizationBreakCalculationMode = "PER_SHIFT",
   locations,
 }: BreakRulesWithLocationsProps) {
   const router = useRouter();
   const [selectedSite, setSelectedSite] = useState<string>("organization");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [calculationMode, setCalculationMode] = useState(organizationBreakCalculationMode);
 
   // Parse break rules for current selection
   const getCurrentBreakRules = (): BreakRule[] => {
@@ -100,7 +103,10 @@ export function BreakRulesWithLocations({
         await fetch("/api/settings/organization", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ breakRules: breakRulesJson || "[]" }),
+          body: JSON.stringify({
+            breakRules: breakRulesJson || "[]",
+            breakCalculationMode: calculationMode,
+          }),
         });
       } else {
         // Save to location
@@ -179,6 +185,48 @@ export function BreakRulesWithLocations({
             className="w-64"
           />
         </div>
+
+        {/* Calculation Mode - Only show for organization */}
+        {selectedSite === "organization" && (
+          <div className="space-y-3">
+            <Label className="font-medium">Calculation Mode</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setCalculationMode("PER_SHIFT")}
+                className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                  calculationMode === "PER_SHIFT"
+                    ? "border-primary bg-primary/5"
+                    : "border-muted hover:border-muted-foreground/50"
+                }`}
+              >
+                <p className="font-medium">Per Shift</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Breaks calculated for each individual shift based on its duration
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCalculationMode("PER_DAY")}
+                className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                  calculationMode === "PER_DAY"
+                    ? "border-primary bg-primary/5"
+                    : "border-muted hover:border-muted-foreground/50"
+                }`}
+              >
+                <p className="font-medium">Per Day</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Breaks calculated based on total daily hours (e.g., 2h + 3h = 5h total)
+                </p>
+              </button>
+            </div>
+            {calculationMode === "PER_DAY" && (
+              <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                Per-day mode sums all shifts for each staff member on the same day and applies break rules to the total.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Location-specific info */}
         {selectedSite !== "organization" && (

@@ -88,15 +88,15 @@ export function StaffLocationsDialog({
             : `${assignedLocationIds.length} location${assignedLocationIds.length !== 1 ? "s" : ""}`}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Assign Locations</DialogTitle>
           <DialogDescription>
             Select which locations {userName} can work at and view on the schedule.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="flex-1 overflow-y-auto py-4">
           {allLocations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -128,7 +128,7 @@ export function StaffLocationsDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 pt-4">
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>

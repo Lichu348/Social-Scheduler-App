@@ -80,20 +80,20 @@ export function InviteUserDialog() {
           Add Team Member
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Add Team Member</DialogTitle>
           <DialogDescription>
             Add a new member to your organization
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            {error && (
-              <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-                {error}
-              </div>
-            )}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          {error && (
+            <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md flex-shrink-0">
+              {error}
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <Input
@@ -155,7 +155,7 @@ export function InviteUserDialog() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>

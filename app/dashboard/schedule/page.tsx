@@ -4,6 +4,7 @@ import { ScheduleGridWithDnd } from "@/components/schedule-grid-with-dnd";
 import { CreateShiftDialog } from "@/components/create-shift-dialog";
 import { CreateEventDialog } from "@/components/create-event-dialog";
 import { LocationScheduleFilter } from "@/components/location-schedule-filter";
+import { WeeklyForecastCard } from "@/components/weekly-forecast-card";
 
 async function getScheduleData(organizationId: string, userId: string, role: string, locationId?: string | null) {
   const startOfMonth = new Date();
@@ -122,12 +123,12 @@ async function getScheduleData(organizationId: string, userId: string, role: str
           locationAccess: { some: { locationId: filterLocationId } },
         } : {}),
       },
-      select: { id: true, name: true, email: true, role: true, staffRole: true },
-      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true, role: true, staffRole: true, contractedHours: true, sortOrder: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     }),
     prisma.organization.findUnique({
       where: { id: organizationId },
-      select: { breakRules: true },
+      select: { breakRules: true, breakCalculationMode: true },
     }),
     prisma.staffAvailability.findMany({
       where: {
@@ -196,6 +197,7 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     shifts,
     users,
     breakRules: organization?.breakRules || "",
+    breakCalculationMode: organization?.breakCalculationMode || "PER_SHIFT",
     allOrgLocations, // All locations for admins/managers
     userLocations, // User's assigned locations for staff dropdown
     currentLocationId: filterLocationId,
@@ -234,6 +236,7 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
     shifts,
     users,
     breakRules,
+    breakCalculationMode,
     allOrgLocations,
     userLocations,
     currentLocationId,
@@ -303,6 +306,13 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
         </div>
       )}
 
+      {/* Forecast Card for Managers */}
+      {isManager && (
+        <div className="mb-4 max-w-sm">
+          <WeeklyForecastCard locationId={currentLocationId} />
+        </div>
+      )}
+
       <ScheduleGridWithDnd
         shifts={shifts}
         users={users}
@@ -315,6 +325,8 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
         locations={isAdmin ? allOrgLocations : userLocations}
         holidays={holidays}
         events={events}
+        breakRules={breakRules}
+        breakCalculationMode={breakCalculationMode}
       />
     </div>
   );

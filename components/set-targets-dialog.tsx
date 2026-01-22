@@ -126,7 +126,7 @@ export function SetTargetsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
@@ -167,7 +167,7 @@ export function SetTargetsDialog({
                     <Icon className={cn("h-5 w-5", cat.color)} />
                     <span className="font-medium">{cat.label}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor={`${cat.key}-activity`} className="text-xs">
                         Activity Target

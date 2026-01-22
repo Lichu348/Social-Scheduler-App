@@ -165,7 +165,7 @@ export function EventDetailDialog({
     <>
       <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-h-[90vh] flex flex-col">
-          <DialogHeader>
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -228,7 +228,7 @@ export function EventDetailDialog({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-startTime">Start Time</Label>
                   <Input
@@ -269,7 +269,7 @@ export function EventDetailDialog({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-expectedGuests">Expected Guests</Label>
                   <Input

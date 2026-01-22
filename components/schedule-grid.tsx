@@ -36,6 +36,8 @@ interface User {
   email: string;
   role: string;
   staffRole?: string;
+  contractedHours?: number | null;
+  sortOrder?: number;
 }
 
 interface Availability {
@@ -76,6 +78,11 @@ interface Event {
   createdBy: { id: string; name: string } | null;
 }
 
+interface BreakRule {
+  minHours: number;
+  breakMinutes: number;
+}
+
 interface ScheduleGridProps {
   shifts: Shift[];
   users: User[];
@@ -88,6 +95,21 @@ interface ScheduleGridProps {
   locations?: Location[];
   holidays?: Holiday[];
   events?: Event[];
+  breakRules?: string;
+  breakCalculationMode?: string;
+}
+
+// Calculate break minutes based on break rules and hours worked
+function calculateBreakMinutes(hoursWorked: number, breakRulesJson: string): number {
+  try {
+    const rules: BreakRule[] = JSON.parse(breakRulesJson);
+    const applicableRule = rules
+      .filter((r) => hoursWorked >= r.minHours)
+      .sort((a, b) => b.minHours - a.minHours)[0];
+    return applicableRule?.breakMinutes || 0;
+  } catch {
+    return 0;
+  }
 }
 
 // Droppable cell component for drag-and-drop
@@ -146,6 +168,8 @@ export function ScheduleGrid({
   locations = [],
   holidays = [],
   events = [],
+  breakRules = "[]",
+  breakCalculationMode = "PER_SHIFT",
 }: ScheduleGridProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("week");
@@ -285,15 +309,36 @@ export function ScheduleGrid({
 
   const getTotalHoursForUser = (userId: string) => {
     let totalMinutes = 0;
-    orderedWeekDates.forEach((date) => {
-      const userShifts = getShiftsForUserAndDate(userId, date);
-      userShifts.forEach((shift) => {
-        const start = new Date(shift.startTime);
-        const end = new Date(shift.endTime);
-        const breakMins = shift.scheduledBreakMinutes || 0;
-        totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60) - breakMins;
+
+    if (breakCalculationMode === "PER_DAY") {
+      // Per-day mode: sum hours per day, then apply break rules to each day's total
+      orderedWeekDates.forEach((date) => {
+        const userShifts = getShiftsForUserAndDate(userId, date);
+        let dayMinutes = 0;
+        userShifts.forEach((shift) => {
+          const start = new Date(shift.startTime);
+          const end = new Date(shift.endTime);
+          dayMinutes += (end.getTime() - start.getTime()) / (1000 * 60);
+        });
+        // Apply break rules to the day's total hours
+        if (dayMinutes > 0) {
+          const dayHours = dayMinutes / 60;
+          const dayBreakMinutes = calculateBreakMinutes(dayHours, breakRules);
+          totalMinutes += dayMinutes - dayBreakMinutes;
+        }
       });
-    });
+    } else {
+      // Per-shift mode: use each shift's scheduled break
+      orderedWeekDates.forEach((date) => {
+        const userShifts = getShiftsForUserAndDate(userId, date);
+        userShifts.forEach((shift) => {
+          const start = new Date(shift.startTime);
+          const end = new Date(shift.endTime);
+          const breakMins = shift.scheduledBreakMinutes || 0;
+          totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60) - breakMins;
+        });
+      });
+    }
     return (totalMinutes / 60).toFixed(2);
   };
 
@@ -740,7 +785,19 @@ export function ScheduleGrid({
                             {isCurrentUser && <span className="text-blue-500 ml-1">(You)</span>}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {viewMode === "week" ? `${totalHours}h this week` : ""}
+                            {viewMode === "week" && (
+                              <>
+                                {totalHours}h
+                                {user.contractedHours && (
+                                  <span className={cn(
+                                    "ml-1",
+                                    parseFloat(totalHours) >= user.contractedHours ? "text-green-600" : "text-amber-600"
+                                  )}>
+                                    / {user.contractedHours}h
+                                  </span>
+                                )}
+                              </>
+                            )}
                           </span>
                         </div>
                       </div>

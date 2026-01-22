@@ -325,7 +325,7 @@ export function LocationsManager() {
               {gettingLocation ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MapPin className="h-4 w-4 mr-2" />}
               Use Current Location
             </Button>
-            <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
               <Input
                 placeholder="Latitude"
                 value={formData.latitude}

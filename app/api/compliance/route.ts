@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createComplianceItemSchema } from "@/lib/schemas";
+import { ValidationError } from "@/lib/errors";
+import { handleApiError } from "@/lib/api-utils";
 
 interface ExtendedUser {
   id: string;
@@ -85,7 +88,12 @@ export async function GET(req: Request) {
       }
 
       // Check if required for user's role
-      const requiredRoles = JSON.parse(item.requiredForRoles || "[]");
+      let requiredRoles: string[] = [];
+      try {
+        requiredRoles = JSON.parse(item.requiredForRoles || "[]");
+      } catch {
+        requiredRoles = [];
+      }
       const isRequiredForUser =
         item.isRequired || requiredRoles.includes(user.staffRole);
 
@@ -131,6 +139,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    const result = createComplianceItemSchema.safeParse(body);
+    if (!result.success) {
+      throw new ValidationError(result.error.issues[0].message);
+    }
+
     const {
       name,
       description,
@@ -141,21 +154,7 @@ export async function POST(req: Request) {
       fileUrl,
       fileName,
       requiresProof,
-    } = body;
-
-    if (!name || !type) {
-      return NextResponse.json(
-        { error: "Name and type are required" },
-        { status: 400 }
-      );
-    }
-
-    if (!["POLICY", "QUALIFICATION", "REVIEW"].includes(type)) {
-      return NextResponse.json(
-        { error: "Type must be POLICY, QUALIFICATION, or REVIEW" },
-        { status: 400 }
-      );
-    }
+    } = result.data;
 
     const item = await prisma.complianceItem.create({
       data: {
@@ -174,10 +173,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
-    console.error("Create compliance item error:", error);
-    return NextResponse.json(
-      { error: "Failed to create compliance item" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

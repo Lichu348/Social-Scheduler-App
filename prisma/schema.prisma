@@ -147,6 +147,7 @@ model Notification {
   @@index([createdAt])
   @@index([isRead])
   @@index([userId])
+  @@index([userId, isRead, createdAt])
 }
 
 model Organization {
@@ -156,6 +157,7 @@ model Organization {
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   breakRules            String                 @default("[{\"minHours\":4,\"breakMinutes\":15},{\"minHours\":6,\"breakMinutes\":30},{\"minHours\":8,\"breakMinutes\":60}]")
+  breakCalculationMode  String                 @default("PER_SHIFT") // PER_SHIFT or PER_DAY
   clockInWindowMinutes  Int                    @default(15)
   clockOutGraceMinutes  Int                    @default(30)
   shiftReminderHours    Int                    @default(24)
@@ -208,9 +210,10 @@ model Shift {
   assignedToId          String?
   createdById           String?
   templateId            String?
-  categoryId            String?
+  categoryId            String?        // Default category (used if no segments defined)
   locationId            String?
   messages              Message[]
+  segments              ShiftSegment[] // Optional: for split-category shifts
   assignedTo            User?          @relation("Shift_assignedToIdToUser", fields: [assignedToId], references: [id])
   category              ShiftCategory? @relation(fields: [categoryId], references: [id])
   createdBy             User?          @relation("Shift_createdByIdToUser", fields: [createdById], references: [id])
@@ -227,6 +230,23 @@ model Shift {
   @@index([startTime, endTime])
 }
 
+// Shift segments allow a single shift to have multiple categories
+// E.g., 09:00-13:00 as CRM then 13:00-17:00 as DM
+model ShiftSegment {
+  id         String        @id @default(cuid())
+  startTime  DateTime      // When this segment starts
+  endTime    DateTime      // When this segment ends
+  shiftId    String
+  shift      Shift         @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   ShiftCategory @relation(fields: [categoryId], references: [id])
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([shiftId])
+  @@index([categoryId])
+}
+
 model ShiftCategory {
   id             String             @id @default(cuid())
   name           String
@@ -237,6 +257,7 @@ model ShiftCategory {
   updatedAt      DateTime           @updatedAt
   organizationId String
   shifts         Shift[]
+  segments       ShiftSegment[]
   organization   Organization       @relation(fields: [organizationId], references: [id])
   templates      ShiftTemplate[]
   userRates      UserCategoryRate[]
@@ -340,6 +361,8 @@ model TimeEntry {
   clockInApproved   Boolean   @default(true)       // false if needs manager approval
   clockInApprovedBy String?                        // Manager who approved
   clockInApprovedAt DateTime?                      // When approved
+  // Missed clock out (auto-flagged by midnight cron)
+  missedClockOut    Boolean   @default(false)      // true if staff forgot to clock out
   userId            String
   shiftId           String?
   shift             Shift?    @relation(fields: [shiftId], references: [id])
@@ -349,6 +372,7 @@ model TimeEntry {
   @@index([shiftId])
   @@index([userId])
   @@index([clockInApproved])
+  @@index([userId, shiftId])
 }
 
 // UNIFIED COMPLIANCE SYSTEM
@@ -413,6 +437,7 @@ model UserCompliance {
   @@index([complianceItemId])
   @@index([reviewedById])
   @@index([expiryDate])
+  @@index([status, expiryDate])
 }
 
 // DEPRECATED - Keep temporarily for migration, remove after data migrated
@@ -459,6 +484,8 @@ model User {
   staffRole         String              @default("DESK")
   paymentType       String              @default("HOURLY") // "HOURLY" or "MONTHLY"
   monthlySalary     Float?              // Monthly salary before tax (for MONTHLY payment type)
+  contractedHours   Float?              // Weekly contracted hours (e.g., 40 for full-time, 20 for part-time)
+  sortOrder         Int                 @default(0) // For custom ordering on schedule (lower = higher up)
   avatarUrl         String?
   phone             String?
   holidayBalance    Int                 @default(200)
@@ -787,6 +814,7 @@ model CashTransaction {
   @@index([locationId])
   @@index([createdAt])
   @@index([type])
+  @@index([locationId, type])
 }
 
 // MAINTENANCE WORK LOG

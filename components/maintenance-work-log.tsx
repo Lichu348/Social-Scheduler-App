@@ -378,7 +378,7 @@ export function MaintenanceWorkLog({ selectedLocationId }: MaintenanceWorkLogPro
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="location">Location *</Label>
                 <Select
@@ -399,7 +399,7 @@ export function MaintenanceWorkLog({ selectedLocationId }: MaintenanceWorkLogPro
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="completedBy">Completed By *</Label>
                 <Input
@@ -441,7 +441,7 @@ export function MaintenanceWorkLog({ selectedLocationId }: MaintenanceWorkLogPro
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="partsUsed">Parts/Materials Used</Label>
                 <Input

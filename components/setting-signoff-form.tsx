@@ -194,7 +194,7 @@ export function SettingSignoffForm({ locations }: SettingSignoffFormProps) {
             </div>
           )}
           <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="location">Site *</Label>
                 <Select

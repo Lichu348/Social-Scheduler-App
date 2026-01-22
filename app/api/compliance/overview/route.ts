@@ -95,7 +95,12 @@ export async function GET() {
           (r) => r.complianceItemId === item.id
         );
 
-        const requiredRoles = JSON.parse(item.requiredForRoles || "[]");
+        let requiredRoles: string[] = [];
+        try {
+          requiredRoles = JSON.parse(item.requiredForRoles || "[]");
+        } catch {
+          requiredRoles = [];
+        }
         const isRequired =
           item.isRequired || requiredRoles.includes(user.staffRole);
 

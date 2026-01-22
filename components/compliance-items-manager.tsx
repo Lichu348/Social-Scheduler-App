@@ -308,7 +308,7 @@ export function ComplianceItemsManager() {
             </div>
 
             {formData.type === "POLICY" && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="fileUrl">Document URL</Label>
                   <Input
