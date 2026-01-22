@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 // GET compliance overview for all users (admin/manager only)
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -13,6 +13,9 @@ export async function GET() {
     if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const { searchParams } = new URL(req.url);
+    const locationId = searchParams.get("locationId");
 
     const isAdmin = session.user.role === "ADMIN";
     const now = new Date();
@@ -26,6 +29,16 @@ export async function GET() {
       orderBy: [{ type: "asc" }, { name: "asc" }],
     });
 
+    // Get all locations for filter dropdown
+    const locations = await prisma.location.findMany({
+      where: {
+        organizationId: session.user.organizationId,
+        isActive: true,
+      },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+
     // For managers, get their assigned location IDs
     let managerLocationIds: string[] = [];
     if (!isAdmin) {
@@ -36,20 +49,18 @@ export async function GET() {
       managerLocationIds = managerLocations.map((l) => l.locationId);
     }
 
-    // Get users - admins see all, managers see only users at their locations
+    // Build location filter
+    const locationFilter = locationId && locationId !== "all"
+      ? { locationAccess: { some: { locationId } } }
+      : isAdmin
+        ? {}
+        : { locationAccess: { some: { locationId: { in: managerLocationIds } } } };
+
+    // Get users filtered by location
     const users = await prisma.user.findMany({
       where: {
         organizationId: session.user.organizationId,
-        // Managers only see users who share at least one location with them
-        ...(isAdmin
-          ? {}
-          : {
-              locationAccess: {
-                some: {
-                  locationId: { in: managerLocationIds },
-                },
-              },
-            }),
+        ...locationFilter,
       },
       select: {
         id: true,
@@ -169,6 +180,7 @@ export async function GET() {
       items,
       users: matrix,
       stats,
+      locations,
     });
   } catch (error) {
     console.error("Get compliance overview error:", error);

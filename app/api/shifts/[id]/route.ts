@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { checkUserCertifications, formatCertificationError } from "@/lib/certification-utils";
+import { sendEmail, newShiftAssignedEmail } from "@/lib/email";
 
 export async function GET(
   req: Request,
@@ -85,6 +86,9 @@ export async function PATCH(
       }
     }
 
+    // Track if this is a new assignment
+    const isNewAssignment = data.assignedToId && data.assignedToId !== shift.assignedToId;
+
     const updatedShift = await prisma.shift.update({
       where: { id },
       data: {
@@ -111,6 +115,47 @@ export async function PATCH(
         },
       },
     });
+
+    // Send email notification for new shift assignment
+    if (isNewAssignment && updatedShift.assignedTo?.email) {
+      const org = await prisma.organization.findUnique({
+        where: { id: session.user.organizationId },
+        select: { name: true },
+      });
+
+      const shiftDate = new Date(updatedShift.startTime);
+      const endDate = new Date(updatedShift.endTime);
+
+      const formattedDate = shiftDate.toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+      const formattedTime = `${shiftDate.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })} - ${endDate.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+
+      const emailContent = newShiftAssignedEmail({
+        employeeName: updatedShift.assignedTo.name || "Team Member",
+        shiftTitle: updatedShift.title,
+        shiftDate: formattedDate,
+        shiftTime: formattedTime,
+        locationName: updatedShift.location?.name,
+        organizationName: org?.name || "Your Organization",
+      });
+
+      // Send email in background (don't wait for it)
+      sendEmail({
+        to: updatedShift.assignedTo.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+      }).catch((err) => console.error("Failed to send shift assignment email:", err));
+    }
 
     return NextResponse.json(updatedShift);
   } catch (error) {

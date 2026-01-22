@@ -5,6 +5,7 @@ import { checkUserCertifications, formatCertificationError } from "@/lib/certifi
 import { createShiftSchema } from "@/lib/schemas";
 import { ValidationError } from "@/lib/errors";
 import { handleApiError } from "@/lib/api-utils";
+import { sendEmail, newShiftAssignedEmail } from "@/lib/email";
 
 export async function GET(req: Request) {
   try {
@@ -170,8 +171,49 @@ export async function POST(req: Request) {
         category: {
           select: { id: true, name: true, hourlyRate: true, color: true },
         },
+        location: {
+          select: { id: true, name: true },
+        },
       },
     });
+
+    // Send email notification for shift assignment
+    if (assignedToId && shift.assignedTo?.email) {
+      const org = await prisma.organization.findUnique({
+        where: { id: session.user.organizationId },
+        select: { name: true },
+      });
+
+      const formattedDate = shiftStartTime.toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+      const formattedTime = `${shiftStartTime.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })} - ${shiftEndTime.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+
+      const emailContent = newShiftAssignedEmail({
+        employeeName: shift.assignedTo.name || "Team Member",
+        shiftTitle: shift.title,
+        shiftDate: formattedDate,
+        shiftTime: formattedTime,
+        locationName: shift.location?.name,
+        organizationName: org?.name || "Your Organization",
+      });
+
+      // Send email in background (don't wait for it)
+      sendEmail({
+        to: shift.assignedTo.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+      }).catch((err) => console.error("Failed to send shift assignment email:", err));
+    }
 
     return NextResponse.json(shift);
   } catch (error) {

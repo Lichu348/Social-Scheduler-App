@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Select } from "@/components/ui/select";
 import {
   CheckCircle,
   XCircle,
@@ -35,6 +36,8 @@ import {
   Clock,
   ClipboardCheck,
   Star,
+  Plus,
+  MapPin,
 } from "lucide-react";
 
 interface ComplianceItem {
@@ -84,6 +87,11 @@ interface OverviewStats {
   pendingAck: number;
 }
 
+interface Location {
+  id: string;
+  name: string;
+}
+
 const staffRoleLabels: Record<string, string> = {
   DESK: "Front Desk",
   COACH: "Coach",
@@ -96,10 +104,13 @@ export function ComplianceAdminView() {
   const [items, setItems] = useState<ComplianceItem[]>([]);
   const [users, setUsers] = useState<UserCompliance[]>([]);
   const [stats, setStats] = useState<OverviewStats | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
   // Review dialog state
   const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [showAddReviewDialog, setShowAddReviewDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserCompliance | null>(null);
   const [selectedItem, setSelectedItem] = useState<ComplianceItem | null>(null);
   const [reviewData, setReviewData] = useState({
@@ -112,16 +123,21 @@ export function ComplianceAdminView() {
 
   useEffect(() => {
     fetchOverview();
-  }, []);
+  }, [selectedLocation]);
 
   const fetchOverview = async () => {
     try {
-      const res = await fetch("/api/compliance/overview");
+      const params = new URLSearchParams();
+      if (selectedLocation && selectedLocation !== "all") {
+        params.append("locationId", selectedLocation);
+      }
+      const res = await fetch(`/api/compliance/overview?${params}`);
       if (res.ok) {
         const data = await res.json();
         setItems(data.items);
         setUsers(data.users);
         setStats(data.stats);
+        setLocations(data.locations || []);
       }
     } catch (error) {
       console.error("Failed to fetch overview:", error);
@@ -193,8 +209,45 @@ export function ComplianceAdminView() {
     return <div className="text-center py-8 text-muted-foreground">Loading compliance data...</div>;
   }
 
+  // Get review items for the Add Review dialog
+  const reviewItems = items.filter((i) => i.type === "REVIEW");
+
+  const handleOpenAddReview = () => {
+    setReviewData({
+      rating: 3,
+      managerNotes: "",
+      goals: "",
+      managerSignature: "",
+    });
+    setShowAddReviewDialog(true);
+  };
+
+  const locationOptions = [
+    { value: "all", label: "All Locations" },
+    ...locations.map((loc) => ({ value: loc.id, label: loc.name })),
+  ];
+
   return (
     <div className="space-y-6">
+      {/* Filters and Actions */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          <Select
+            options={locationOptions}
+            value={selectedLocation}
+            onChange={(e) => setSelectedLocation(e.target.value)}
+            className="w-[200px]"
+          />
+        </div>
+        {reviewItems.length > 0 && (
+          <Button onClick={handleOpenAddReview}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Review
+          </Button>
+        )}
+      </div>
+
       {/* Stats Cards */}
       {stats && (
         <div className="grid gap-4 md:grid-cols-4">
@@ -441,6 +494,144 @@ export function ComplianceAdminView() {
             <Button
               onClick={handleSaveReview}
               disabled={saving || !reviewData.managerSignature.trim()}
+            >
+              {saving ? "Saving..." : "Complete Review"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Review Dialog - Select User and Review Type */}
+      <Dialog open={showAddReviewDialog} onOpenChange={setShowAddReviewDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Performance Review</DialogTitle>
+            <DialogDescription>
+              Select an employee and review type to conduct a performance review
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reviewUser">Employee</Label>
+              <Select
+                id="reviewUser"
+                options={[
+                  { value: "", label: "Select employee..." },
+                  ...users.map((u) => ({ value: u.id, label: u.name })),
+                ]}
+                value={selectedUser?.id || ""}
+                onChange={(e) => {
+                  const user = users.find((u) => u.id === e.target.value);
+                  setSelectedUser(user || null);
+                }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reviewType">Review Type</Label>
+              <Select
+                id="reviewType"
+                options={[
+                  { value: "", label: "Select review type..." },
+                  ...reviewItems.map((i) => ({ value: i.id, label: i.name })),
+                ]}
+                value={selectedItem?.id || ""}
+                onChange={(e) => {
+                  const item = reviewItems.find((i) => i.id === e.target.value);
+                  setSelectedItem(item || null);
+                }}
+              />
+            </div>
+
+            {selectedUser && selectedItem && (
+              <>
+                <div className="space-y-2">
+                  <Label>Performance Rating</Label>
+                  <div className="flex items-center gap-2">
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => setReviewData({ ...reviewData, rating })}
+                        className="p-1 hover:scale-110 transition-transform"
+                      >
+                        <Star
+                          className={`h-8 w-8 ${
+                            rating <= reviewData.rating
+                              ? "text-yellow-500 fill-yellow-500"
+                              : "text-gray-300"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      {reviewData.rating}/5
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="addManagerNotes">Manager Notes / Feedback</Label>
+                  <Textarea
+                    id="addManagerNotes"
+                    value={reviewData.managerNotes}
+                    onChange={(e) =>
+                      setReviewData({ ...reviewData, managerNotes: e.target.value })
+                    }
+                    placeholder="Performance feedback, areas of strength, areas for improvement..."
+                    rows={4}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="addGoals">Goals for Next Review Period</Label>
+                  <Textarea
+                    id="addGoals"
+                    value={reviewData.goals}
+                    onChange={(e) =>
+                      setReviewData({ ...reviewData, goals: e.target.value })
+                    }
+                    placeholder="Specific, measurable goals for the employee..."
+                    rows={3}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="addManagerSignature">Manager Signature</Label>
+                  <Input
+                    id="addManagerSignature"
+                    value={reviewData.managerSignature}
+                    onChange={(e) =>
+                      setReviewData({ ...reviewData, managerSignature: e.target.value })
+                    }
+                    placeholder="Type your full name"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This digital signature will be recorded with the current date and time.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowAddReviewDialog(false);
+              setSelectedUser(null);
+              setSelectedItem(null);
+            }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!selectedUser || !selectedItem) return;
+                await handleSaveReview();
+                setShowAddReviewDialog(false);
+                setSelectedUser(null);
+                setSelectedItem(null);
+              }}
+              disabled={saving || !selectedUser || !selectedItem || !reviewData.managerSignature.trim()}
             >
               {saving ? "Saving..." : "Complete Review"}
             </Button>

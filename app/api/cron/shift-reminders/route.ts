@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { sendEmail, shiftReminderEmail } from "@/lib/email";
 
 // This route can be called by a cron job service (e.g., Vercel Cron, GitHub Actions)
 // to send shift reminders to employees
@@ -22,12 +23,14 @@ export async function GET(req: Request) {
     const organizations = await prisma.organization.findMany({
       select: {
         id: true,
+        name: true,
         shiftReminderHours: true,
       },
     });
 
     const now = new Date();
     let totalReminders = 0;
+    let emailsSent = 0;
 
     for (const org of organizations) {
       const reminderHours = org.shiftReminderHours;
@@ -50,7 +53,10 @@ export async function GET(req: Request) {
         },
         include: {
           assignedTo: {
-            select: { id: true, name: true },
+            select: { id: true, name: true, email: true },
+          },
+          location: {
+            select: { name: true },
           },
         },
       });
@@ -76,26 +82,55 @@ export async function GET(req: Request) {
 
         if (!existingReminder) {
           const shiftDate = new Date(shift.startTime);
-          const formattedDate = shiftDate.toLocaleDateString("en-US", {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-          });
-          const formattedTime = shiftDate.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-          });
+          const endDate = new Date(shift.endTime);
 
+          const formattedDate = shiftDate.toLocaleDateString("en-GB", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          });
+          const formattedTime = `${shiftDate.toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })} - ${endDate.toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`;
+
+          // Create in-app notification
           await prisma.notification.create({
             data: {
               userId: shift.assignedTo.id,
               type: "SHIFT_REMINDER",
               title: "Upcoming Shift Reminder",
-              message: `You have a shift "${shift.title}" on ${formattedDate} at ${formattedTime}. Shift ID: ${shift.id}`,
+              message: `You have a shift "${shift.title}" on ${formattedDate} at ${shiftDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}. Shift ID: ${shift.id}`,
               link: "/dashboard/schedule",
             },
           });
           totalReminders++;
+
+          // Send email notification
+          if (shift.assignedTo.email) {
+            const emailContent = shiftReminderEmail({
+              employeeName: shift.assignedTo.name || "Team Member",
+              shiftTitle: shift.title,
+              shiftDate: formattedDate,
+              shiftTime: formattedTime,
+              locationName: shift.location?.name,
+              organizationName: org.name,
+            });
+
+            const result = await sendEmail({
+              to: shift.assignedTo.email,
+              subject: emailContent.subject,
+              html: emailContent.html,
+              text: emailContent.text,
+            });
+
+            if (result.success) {
+              emailsSent++;
+            }
+          }
         }
       }
     }
@@ -103,6 +138,7 @@ export async function GET(req: Request) {
     return NextResponse.json({
       success: true,
       remindersCreated: totalReminders,
+      emailsSent,
       timestamp: now.toISOString(),
     });
   } catch (error) {

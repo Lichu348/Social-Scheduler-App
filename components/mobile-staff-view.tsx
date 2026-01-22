@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,8 @@ import {
   Trash2,
   MapPin,
   ChevronRight,
+  ChevronLeft,
+  Users,
 } from "lucide-react";
 import { formatDate, formatTime, calculateHours } from "@/lib/utils";
 import { MobileSwapDropDialog } from "@/components/mobile-swap-drop-dialog";
@@ -47,6 +49,10 @@ interface SwapRequest {
   shift: { id: string; title: string; startTime: Date; endTime: Date };
 }
 
+interface AllShift extends Shift {
+  assignedTo: { id: string; name: string } | null;
+}
+
 interface MobileStaffViewProps {
   user: {
     id: string;
@@ -66,7 +72,7 @@ interface MobileStaffViewProps {
   };
 }
 
-type TabType = "clock" | "shifts" | "timesheet";
+type TabType = "clock" | "shifts" | "rota" | "timesheet";
 
 export function MobileStaffView({
   user,
@@ -82,6 +88,58 @@ export function MobileStaffView({
   const [gettingLocation, setGettingLocation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTimeEntry, setActiveTimeEntry] = useState(initialActiveTimeEntry);
+
+  // Week navigation state
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [allShifts, setAllShifts] = useState<AllShift[]>([]);
+  const [loadingAllShifts, setLoadingAllShifts] = useState(false);
+
+  // Get current week dates
+  const getWeekDates = (offset: number) => {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay() + 1 + (offset * 7)); // Monday
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  };
+
+  const weekDates = getWeekDates(weekOffset);
+  const weekStart = weekDates[0];
+  const weekEnd = weekDates[6];
+
+  // Fetch all shifts for the current week
+  const fetchAllShifts = async () => {
+    setLoadingAllShifts(true);
+    try {
+      const params = new URLSearchParams({
+        startDate: weekStart.toISOString(),
+        endDate: new Date(weekEnd.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString(),
+      });
+      const res = await fetch(`/api/shifts/all?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAllShifts(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch all shifts:", error);
+    } finally {
+      setLoadingAllShifts(false);
+    }
+  };
+
+  // Fetch shifts when rota tab is active or week changes
+  useEffect(() => {
+    if (activeTab === "rota") {
+      fetchAllShifts();
+    }
+  }, [activeTab, weekOffset]);
 
   const getCurrentPosition = useCallback((): Promise<{ latitude: number; longitude: number } | null> => {
     return new Promise((resolve) => {
@@ -412,10 +470,74 @@ export function MobileStaffView({
           </div>
         )}
 
-        {/* Shifts Tab */}
+        {/* Shifts Tab - Week View */}
         {activeTab === "shifts" && (
           <div className="p-4 space-y-4">
-            <h2 className="text-lg font-semibold">Your Shifts</h2>
+            {/* Week Navigation */}
+            <div className="flex items-center justify-between">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWeekOffset(weekOffset - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-center">
+                <h2 className="text-lg font-semibold">Your Shifts</h2>
+                <p className="text-sm text-muted-foreground">
+                  {weekStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} - {weekEnd.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWeekOffset(weekOffset + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Week Day Scroller */}
+            <div className="overflow-x-auto pb-2 -mx-4 px-4">
+              <div className="flex gap-2 min-w-max">
+                {weekDates.map((date) => {
+                  const isToday = date.toDateString() === new Date().toDateString();
+                  const dayShifts = upcomingShifts.filter(
+                    (s) => new Date(s.startTime).toDateString() === date.toDateString()
+                  );
+                  const hasShift = dayShifts.length > 0;
+
+                  return (
+                    <div
+                      key={date.toISOString()}
+                      className={`flex-shrink-0 w-24 p-2 rounded-lg text-center border ${
+                        isToday
+                          ? "border-primary bg-primary/5"
+                          : hasShift
+                          ? "border-green-200 bg-green-50"
+                          : "border-muted"
+                      }`}
+                    >
+                      <p className={`text-xs font-medium ${isToday ? "text-primary" : "text-muted-foreground"}`}>
+                        {date.toLocaleDateString("en-GB", { weekday: "short" })}
+                      </p>
+                      <p className={`text-lg font-bold ${isToday ? "text-primary" : ""}`}>
+                        {date.getDate()}
+                      </p>
+                      {hasShift && (
+                        <div className="mt-1 space-y-1">
+                          {dayShifts.map((shift) => (
+                            <p key={shift.id} className="text-xs text-green-700 truncate">
+                              {formatTime(shift.startTime)}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Pending Requests */}
             {pendingSwapRequests.length > 0 && (
@@ -439,62 +561,168 @@ export function MobileStaffView({
               </Card>
             )}
 
-            {/* Upcoming Shifts */}
-            {upcomingShifts.length > 0 ? (
-              <div className="space-y-3">
-                {upcomingShifts.map((shift) => {
-                  const isToday = new Date(shift.startTime).toDateString() === new Date().toDateString();
-                  const hasPendingRequest = pendingSwapRequests.some((r) => r.shift.id === shift.id);
+            {/* Week's Shifts Detail */}
+            {(() => {
+              const weekShifts = upcomingShifts.filter((s) => {
+                const shiftDate = new Date(s.startTime);
+                return shiftDate >= weekStart && shiftDate <= new Date(weekEnd.getTime() + 24 * 60 * 60 * 1000);
+              });
+
+              return weekShifts.length > 0 ? (
+                <div className="space-y-3">
+                  {weekShifts.map((shift) => {
+                    const isToday = new Date(shift.startTime).toDateString() === new Date().toDateString();
+                    const hasPendingRequest = pendingSwapRequests.some((r) => r.shift.id === shift.id);
+
+                    return (
+                      <Card key={shift.id} className={isToday ? "border-primary" : ""}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{formatDate(shift.startTime)}</p>
+                                {isToday && <Badge variant="default">Today</Badge>}
+                              </div>
+                              <p className="text-lg font-semibold">
+                                {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                              </p>
+                              <Badge
+                                variant="secondary"
+                                style={shift.category ? { backgroundColor: shift.category.color + "20", color: shift.category.color } : {}}
+                              >
+                                {shift.title}
+                              </Badge>
+                              {shift.location && (
+                                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {shift.location.name}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              {!hasPendingRequest && (
+                                <MobileSwapDropDialog
+                                  shiftId={shift.id}
+                                  shiftTitle={shift.title}
+                                  shiftDate={formatDate(shift.startTime)}
+                                />
+                              )}
+                              {hasPendingRequest && (
+                                <Badge variant="warning">Request pending</Badge>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center text-muted-foreground">
+                    No shifts this week
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Rota Tab - All Shifts (See who you're working with) */}
+        {activeTab === "rota" && (
+          <div className="p-4 space-y-4">
+            {/* Week Navigation */}
+            <div className="flex items-center justify-between">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWeekOffset(weekOffset - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-center">
+                <h2 className="text-lg font-semibold">Team Rota</h2>
+                <p className="text-sm text-muted-foreground">
+                  {weekStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} - {weekEnd.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWeekOffset(weekOffset + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {loadingAllShifts ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                Loading team shifts...
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {weekDates.map((date) => {
+                  const dayShifts = allShifts.filter(
+                    (s) => new Date(s.startTime).toDateString() === date.toDateString()
+                  );
+                  const isToday = date.toDateString() === new Date().toDateString();
 
                   return (
-                    <Card key={shift.id} className={isToday ? "border-primary" : ""}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">{formatDate(shift.startTime)}</p>
-                              {isToday && <Badge variant="default">Today</Badge>}
-                            </div>
-                            <p className="text-lg font-semibold">
-                              {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
-                            </p>
-                            <Badge
-                              variant="secondary"
-                              style={shift.category ? { backgroundColor: shift.category.color + "20", color: shift.category.color } : {}}
-                            >
-                              {shift.title}
-                            </Badge>
-                            {shift.location && (
-                              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {shift.location.name}
-                              </p>
-                            )}
+                    <Card key={date.toISOString()} className={isToday ? "border-primary" : ""}>
+                      <CardHeader className="py-2 px-4">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <span className={isToday ? "text-primary" : ""}>
+                            {date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}
+                          </span>
+                          {isToday && <Badge variant="default" className="text-xs">Today</Badge>}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-4 pb-3">
+                        {dayShifts.length > 0 ? (
+                          <div className="space-y-2">
+                            {dayShifts.map((shift) => {
+                              const isMyShift = shift.assignedTo?.id === user.id;
+                              return (
+                                <div
+                                  key={shift.id}
+                                  className={`p-2 rounded border ${
+                                    isMyShift ? "border-primary bg-primary/5" : "bg-muted/30"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium">
+                                        {formatTime(shift.startTime)} - {formatTime(shift.endTime)}
+                                      </span>
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs"
+                                        style={shift.category ? { backgroundColor: shift.category.color + "20", color: shift.category.color } : {}}
+                                      >
+                                        {shift.title}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <Users className="h-3 w-3 text-muted-foreground" />
+                                    <span className={`text-sm ${isMyShift ? "font-medium text-primary" : "text-muted-foreground"}`}>
+                                      {shift.assignedTo?.name || "Unassigned"}
+                                      {isMyShift && " (You)"}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="flex flex-col gap-2">
-                            {!hasPendingRequest && (
-                              <MobileSwapDropDialog
-                                shiftId={shift.id}
-                                shiftTitle={shift.title}
-                                shiftDate={formatDate(shift.startTime)}
-                              />
-                            )}
-                            {hasPendingRequest && (
-                              <Badge variant="warning">Request pending</Badge>
-                            )}
-                          </div>
-                        </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No shifts scheduled</p>
+                        )}
                       </CardContent>
                     </Card>
                   );
                 })}
               </div>
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center text-muted-foreground">
-                  No upcoming shifts scheduled
-                </CardContent>
-              </Card>
             )}
           </div>
         )}
@@ -604,7 +832,16 @@ export function MobileStaffView({
             }`}
           >
             <Calendar className="h-6 w-6" />
-            <span className="text-xs mt-1">Shifts</span>
+            <span className="text-xs mt-1">My Shifts</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("rota")}
+            className={`flex-1 flex flex-col items-center py-3 ${
+              activeTab === "rota" ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <Users className="h-6 w-6" />
+            <span className="text-xs mt-1">Rota</span>
           </button>
           <button
             onClick={() => setActiveTab("timesheet")}
