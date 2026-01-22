@@ -15,13 +15,19 @@ import { HolidayAllowanceDialog } from "@/components/holiday-allowance-dialog";
 import { ResetPasswordDialog } from "@/components/reset-password-dialog";
 import { StarterFormStatusBadge } from "@/components/starter-form-status-badge";
 import { ViewStarterFormDialog } from "@/components/view-starter-form-dialog";
+import { LocationScheduleFilter } from "@/components/location-schedule-filter";
 import { UserPlus, Palmtree, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-async function getTeamData(organizationId: string) {
+async function getTeamData(organizationId: string, locationId?: string | null) {
+  // Build location filter for users
+  const locationFilter = locationId && locationId !== "all"
+    ? { locationAccess: { some: { locationId } } }
+    : {};
+
   const [users, locations, holidayRequests] = await Promise.all([
     prisma.user.findMany({
-      where: { organizationId },
+      where: { organizationId, ...locationFilter },
       select: {
         id: true,
         name: true,
@@ -107,13 +113,23 @@ function getHolidayStatus(balance: number, usedHours: number) {
   }
 }
 
-export default async function TeamPage() {
+interface TeamPageProps {
+  searchParams: Promise<{ location?: string }>;
+}
+
+export default async function TeamPage({ searchParams }: TeamPageProps) {
   const session = await auth();
   if (!session?.user) return null;
 
+  const params = await searchParams;
+  const locationId = params.location;
+
   const isManager = session.user.role === "MANAGER" || session.user.role === "ADMIN";
   const isAdmin = session.user.role === "ADMIN";
-  const { users, locations, usedHoursMap } = await getTeamData(session.user.organizationId);
+  const { users, locations, usedHoursMap } = await getTeamData(session.user.organizationId, locationId);
+
+  const showLocationFilter = locations.length > 0;
+  const showAllOption = isAdmin || isManager;
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -169,14 +185,23 @@ export default async function TeamPage() {
               : "View your team"}
           </p>
         </div>
-        {isManager && (
-          <Link href="/dashboard/team/invite">
-            <Button>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add Team Member
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          {showLocationFilter && (
+            <LocationScheduleFilter
+              locations={locations}
+              currentLocationId={locationId || (showAllOption ? "all" : locations[0]?.id || "")}
+              showAllOption={showAllOption}
+            />
+          )}
+          {isManager && (
+            <Link href="/dashboard/team/invite">
+              <Button>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add Team Member
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Team Stats */}

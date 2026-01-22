@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatTime, calculateHours } from "@/lib/utils";
 import { TimesheetActions } from "@/components/timesheet-actions";
 import { ExportTimesheetDialog } from "@/components/export-timesheet-dialog";
+import { LocationScheduleFilter } from "@/components/location-schedule-filter";
 import { Calendar, Banknote } from "lucide-react";
 
 interface PayPeriod {
@@ -16,28 +17,62 @@ interface PayPeriod {
   notes: string | null;
 }
 
-async function getTimeEntries(userId: string, organizationId: string, role: string) {
+async function getTimeEntries(userId: string, organizationId: string, role: string, locationId?: string | null) {
   const isManager = role === "MANAGER" || role === "ADMIN";
 
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
 
+  // Build location filter if specified
+  const locationFilter = locationId && locationId !== "all"
+    ? { shift: { locationId } }
+    : {};
+
   return prisma.timeEntry.findMany({
     where: isManager
-      ? { user: { organizationId } }
-      : { userId },
+      ? { user: { organizationId }, ...locationFilter }
+      : { userId, ...locationFilter },
     include: {
       user: {
         select: { id: true, name: true, email: true },
       },
       shift: {
-        select: { id: true, title: true, startTime: true },
+        select: { id: true, title: true, startTime: true, locationId: true },
       },
     },
     orderBy: { clockIn: "desc" },
     take: 50,
   });
+}
+
+async function getLocations(organizationId: string, userId: string, role: string) {
+  const isAdmin = role === "ADMIN";
+
+  if (isAdmin) {
+    // Admins can see all locations
+    return prisma.location.findMany({
+      where: { organizationId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  // Managers and employees see their assigned locations
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      locationAccess: {
+        select: {
+          location: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+    },
+  });
+
+  return user?.locationAccess.map((la) => la.location) || [];
 }
 
 async function getCurrentPayPeriod(organizationId: string): Promise<PayPeriod | null> {
@@ -79,13 +114,21 @@ async function getPayPeriodHours(userId: string, startDate: Date, endDate: Date)
   }, 0);
 }
 
-export default async function TimesheetPage() {
+interface TimesheetPageProps {
+  searchParams: Promise<{ location?: string }>;
+}
+
+export default async function TimesheetPage({ searchParams }: TimesheetPageProps) {
   const session = await auth();
   if (!session?.user) return null;
 
-  const [entries, currentPayPeriod] = await Promise.all([
-    getTimeEntries(session.user.id, session.user.organizationId, session.user.role),
+  const params = await searchParams;
+  const locationId = params.location;
+
+  const [entries, currentPayPeriod, locations] = await Promise.all([
+    getTimeEntries(session.user.id, session.user.organizationId, session.user.role, locationId),
     getCurrentPayPeriod(session.user.organizationId),
+    getLocations(session.user.organizationId, session.user.id, session.user.role),
   ]);
 
   // Get hours for the current pay period (for the current user)
@@ -130,6 +173,10 @@ export default async function TimesheetPage() {
     .filter((e) => e.clockOut)
     .reduce((total, entry) => total + calculateTotalHours(entry), 0);
 
+  const isAdmin = session.user.role === "ADMIN";
+  const showLocationFilter = locations.length > 0;
+  const showAllOption = isAdmin || isManager;
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
@@ -141,7 +188,16 @@ export default async function TimesheetPage() {
               : "Track your worked hours"}
           </p>
         </div>
-        {isManager && <ExportTimesheetDialog />}
+        <div className="flex items-center gap-3">
+          {showLocationFilter && (
+            <LocationScheduleFilter
+              locations={locations}
+              currentLocationId={locationId || (showAllOption ? "all" : locations[0]?.id || "")}
+              showAllOption={showAllOption}
+            />
+          )}
+          {isManager && <ExportTimesheetDialog />}
+        </div>
       </div>
 
       {/* Pay Period Card */}
