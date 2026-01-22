@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { sendEmail, shiftReminderEmail } from "@/lib/email";
+import { sendEmail, shiftReminderEmail, ShiftDetail } from "@/lib/email";
 
 // This route can be called by a cron job service (e.g., Vercel Cron, GitHub Actions)
 // to send shift reminders to employees
+
+interface ShiftWithDetails {
+  id: string;
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  assignedTo: { id: string; name: string | null; email: string | null } | null;
+  location: { name: string } | null;
+}
 
 export async function GET(req: Request) {
   try {
@@ -59,77 +68,113 @@ export async function GET(req: Request) {
             select: { name: true },
           },
         },
+        orderBy: { startTime: "asc" },
       });
 
-      // Create reminder notifications for each shift
+      // Group shifts by user and date
+      const shiftsByUserAndDate = new Map<string, {
+        user: { id: string; name: string | null; email: string | null };
+        date: string;
+        formattedDate: string;
+        shifts: ShiftWithDetails[];
+      }>();
+
       for (const shift of upcomingShifts) {
         if (!shift.assignedTo) continue;
 
-        // Check if a reminder was already sent for this shift
-        const existingReminder = await prisma.notification.findFirst({
-          where: {
-            userId: shift.assignedTo.id,
-            type: "SHIFT_REMINDER",
-            link: `/dashboard/schedule`,
-            createdAt: {
-              gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), // Within last 24 hours
-            },
-            message: {
-              contains: shift.id,
-            },
-          },
-        });
+        const shiftDate = new Date(shift.startTime);
+        const dateKey = shiftDate.toDateString(); // e.g., "Mon Jan 23 2024"
+        const userDateKey = `${shift.assignedTo.id}-${dateKey}`;
 
-        if (!existingReminder) {
-          const shiftDate = new Date(shift.startTime);
-          const endDate = new Date(shift.endTime);
-
-          const formattedDate = shiftDate.toLocaleDateString("en-GB", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
+        if (!shiftsByUserAndDate.has(userDateKey)) {
+          shiftsByUserAndDate.set(userDateKey, {
+            user: shift.assignedTo,
+            date: dateKey,
+            formattedDate: shiftDate.toLocaleDateString("en-GB", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            }),
+            shifts: [],
           });
-          const formattedTime = `${shiftDate.toLocaleTimeString("en-GB", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })} - ${endDate.toLocaleTimeString("en-GB", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}`;
+        }
 
-          // Create in-app notification
-          await prisma.notification.create({
-            data: {
-              userId: shift.assignedTo.id,
+        shiftsByUserAndDate.get(userDateKey)!.shifts.push(shift);
+      }
+
+      // Process each user-date group
+      for (const [, group] of shiftsByUserAndDate) {
+        const { user, formattedDate, shifts } = group;
+
+        // Check which shifts haven't had reminders sent yet
+        const shiftsNeedingReminder: ShiftWithDetails[] = [];
+
+        for (const shift of shifts) {
+          const existingReminder = await prisma.notification.findFirst({
+            where: {
+              userId: user.id,
               type: "SHIFT_REMINDER",
-              title: "Upcoming Shift Reminder",
-              message: `You have a shift "${shift.title}" on ${formattedDate} at ${shiftDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}. Shift ID: ${shift.id}`,
-              link: "/dashboard/schedule",
+              createdAt: {
+                gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), // Within last 24 hours
+              },
+              message: {
+                contains: shift.id,
+              },
             },
           });
-          totalReminders++;
 
-          // Send email notification
-          if (shift.assignedTo.email) {
-            const emailContent = shiftReminderEmail({
-              employeeName: shift.assignedTo.name || "Team Member",
+          if (!existingReminder) {
+            shiftsNeedingReminder.push(shift);
+
+            // Create in-app notification for each shift
+            const shiftStartTime = new Date(shift.startTime);
+            await prisma.notification.create({
+              data: {
+                userId: user.id,
+                type: "SHIFT_REMINDER",
+                title: "Upcoming Shift Reminder",
+                message: `You have a shift "${shift.title}" on ${formattedDate} at ${shiftStartTime.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}. Shift ID: ${shift.id}`,
+                link: "/dashboard/schedule",
+              },
+            });
+            totalReminders++;
+          }
+        }
+
+        // Send one combined email for all shifts needing reminders
+        if (shiftsNeedingReminder.length > 0 && user.email) {
+          const shiftDetails: ShiftDetail[] = shiftsNeedingReminder.map((shift) => {
+            const startTime = new Date(shift.startTime);
+            const endTime = new Date(shift.endTime);
+            return {
               shiftTitle: shift.title,
-              shiftDate: formattedDate,
-              shiftTime: formattedTime,
+              shiftTime: `${startTime.toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })} - ${endTime.toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}`,
               locationName: shift.location?.name,
-              organizationName: org.name,
-            });
+            };
+          });
 
-            const result = await sendEmail({
-              to: shift.assignedTo.email,
-              subject: emailContent.subject,
-              html: emailContent.html,
-              text: emailContent.text,
-            });
+          const emailContent = shiftReminderEmail({
+            employeeName: user.name || "Team Member",
+            shiftDate: formattedDate,
+            shifts: shiftDetails,
+            organizationName: org.name,
+          });
 
-            if (result.success) {
-              emailsSent++;
-            }
+          const result = await sendEmail({
+            to: user.email,
+            subject: emailContent.subject,
+            html: emailContent.html,
+            text: emailContent.text,
+          });
+
+          if (result.success) {
+            emailsSent++;
           }
         }
       }

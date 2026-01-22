@@ -43,18 +43,39 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
   }
 }
 
+// Shift details for multi-shift emails
+export interface ShiftDetail {
+  shiftTitle: string;
+  shiftTime: string;
+  locationName?: string;
+}
+
 // Email templates
 export function shiftReminderEmail(params: {
   employeeName: string;
-  shiftTitle: string;
   shiftDate: string;
-  shiftTime: string;
-  locationName?: string;
+  shifts: ShiftDetail[];
   organizationName: string;
 }): { subject: string; html: string; text: string } {
-  const { employeeName, shiftTitle, shiftDate, shiftTime, locationName, organizationName } = params;
+  const { employeeName, shiftDate, shifts, organizationName } = params;
 
-  const subject = `Reminder: You're on shift ${shiftDate}`;
+  const isSplitShift = shifts.length > 1;
+  const subject = isSplitShift
+    ? `Reminder: You have ${shifts.length} shifts on ${shiftDate}`
+    : `Reminder: You're on shift ${shiftDate}`;
+
+  // Build shifts table rows
+  const shiftsTableHtml = shifts.map((shift, index) => `
+    <tr style="${index > 0 ? 'border-top: 1px solid #e5e7eb;' : ''}">
+      <td style="padding: 12px 8px; font-weight: 600;">${shift.shiftTime}</td>
+      <td style="padding: 12px 8px; font-weight: 600;">${shift.shiftTitle}</td>
+      <td style="padding: 12px 8px; color: #6b7280;">${shift.locationName || '-'}</td>
+    </tr>
+  `).join('');
+
+  const shiftsTextList = shifts.map(shift =>
+    `• ${shift.shiftTime} - ${shift.shiftTitle}${shift.locationName ? ` (${shift.locationName})` : ''}`
+  ).join('\n');
 
   const html = `
 <!DOCTYPE html>
@@ -72,28 +93,20 @@ export function shiftReminderEmail(params: {
   <div style="background: #fff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
     <p style="margin-top: 0;">Hey ${employeeName}!</p>
 
-    <p>Just a friendly reminder that you're scheduled to work soon. Here are your shift details:</p>
+    <p>Just a friendly reminder that you're scheduled to work on <strong>${shiftDate}</strong>. Here ${isSplitShift ? 'are your shifts' : 'are your shift details'}:</p>
 
-    <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0;">
-      <table style="width: 100%; border-collapse: collapse;">
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280; width: 100px;">Shift:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${shiftTitle}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Date:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${shiftDate}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Time:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${shiftTime}</td>
-        </tr>
-        ${locationName ? `
-        <tr>
-          <td style="padding: 8px 0; color: #6b7280;">Location:</td>
-          <td style="padding: 8px 0; font-weight: 600;">${locationName}</td>
-        </tr>
-        ` : ""}
+    <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin: 20px 0; overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; min-width: 300px;">
+        <thead>
+          <tr style="border-bottom: 2px solid #e5e7eb;">
+            <th style="padding: 8px; text-align: left; color: #6b7280; font-weight: 600; font-size: 14px;">Time</th>
+            <th style="padding: 8px; text-align: left; color: #6b7280; font-weight: 600; font-size: 14px;">Shift</th>
+            <th style="padding: 8px; text-align: left; color: #6b7280; font-weight: 600; font-size: 14px;">Location</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${shiftsTableHtml}
+        </tbody>
       </table>
     </div>
 
@@ -118,12 +131,9 @@ Shift Reminder
 
 Hey ${employeeName}!
 
-Just a friendly reminder that you're scheduled to work soon. Here are your shift details:
+Just a friendly reminder that you're scheduled to work on ${shiftDate}. Here ${isSplitShift ? 'are your shifts' : 'are your shift details'}:
 
-Shift: ${shiftTitle}
-Date: ${shiftDate}
-Time: ${shiftTime}
-${locationName ? `Location: ${locationName}` : ""}
+${shiftsTextList}
 
 If you're running late or have any issues getting to work, please let your manager know as soon as possible so we can make arrangements.
 
