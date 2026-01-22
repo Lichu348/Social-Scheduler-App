@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { EditShiftDialog } from "./edit-shift-dialog";
 import { formatDate, formatTime, calculateHours } from "@/lib/utils";
-import { Calendar, Clock, User, ArrowLeftRight, Trash2, Coffee, Tag, DollarSign, AlertTriangle, Pencil } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar, Clock, User, ArrowLeftRight, Trash2, Coffee, Tag, DollarSign, AlertTriangle, Pencil, MessageSquare, Save } from "lucide-react";
 
 interface ShiftCategory {
   id: string;
@@ -38,6 +39,7 @@ interface Shift {
   status: string;
   isOpen: boolean;
   scheduledBreakMinutes?: number;
+  handoverNotes?: string | null;
   assignedTo: { id: string; name: string; email: string } | null;
   category?: ShiftCategory | null;
   location?: Location | null;
@@ -82,6 +84,9 @@ export function ShiftDetailDialog({
   const [certWarning, setCertWarning] = useState<CertificationWarning | null>(null);
   const [checkingCerts, setCheckingCerts] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [handoverNotes, setHandoverNotes] = useState(shift.handoverNotes || "");
+  const [editingHandover, setEditingHandover] = useState(false);
+  const [savingHandover, setSavingHandover] = useState(false);
 
   const isMyShift = shift.assignedTo?.id === currentUserId;
   const hours = calculateHours(shift.startTime, shift.endTime);
@@ -189,6 +194,25 @@ export function ShiftDetailDialog({
     }
   };
 
+  const handleSaveHandover = async () => {
+    setSavingHandover(true);
+    try {
+      const res = await fetch(`/api/shifts/${shift.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handoverNotes: handoverNotes || null }),
+      });
+      if (res.ok) {
+        setEditingHandover(false);
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Failed to save handover notes:", error);
+    } finally {
+      setSavingHandover(false);
+    }
+  };
+
   const userOptions = [
     { value: "", label: "Unassigned (Open Shift)" },
     ...users.map((user) => ({ value: user.id, label: user.name })),
@@ -271,6 +295,66 @@ export function ShiftDetailDialog({
               {shift.description}
             </p>
           )}
+
+          {/* Handover Notes Section */}
+          <div className="border-t pt-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Handover Notes
+              </p>
+              {isManager && !editingHandover && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingHandover(true)}
+                >
+                  <Pencil className="h-3 w-3 mr-1" />
+                  {handoverNotes ? "Edit" : "Add"}
+                </Button>
+              )}
+            </div>
+            {editingHandover ? (
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Add notes for the next person on this shift..."
+                  value={handoverNotes}
+                  onChange={(e) => setHandoverNotes(e.target.value)}
+                  rows={3}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveHandover}
+                    disabled={savingHandover}
+                  >
+                    <Save className="h-3 w-3 mr-1" />
+                    {savingHandover ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingHandover(false);
+                      setHandoverNotes(shift.handoverNotes || "");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : handoverNotes ? (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
+                <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
+                  {handoverNotes}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">
+                No handover notes for this shift
+              </p>
+            )}
+          </div>
 
           {isManager && (
             <div className="border-t pt-4 space-y-2">

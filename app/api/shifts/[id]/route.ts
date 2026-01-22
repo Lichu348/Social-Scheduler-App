@@ -97,11 +97,12 @@ export async function PATCH(
         startTime: data.startTime ? new Date(data.startTime) : undefined,
         endTime: data.endTime ? new Date(data.endTime) : undefined,
         assignedToId: data.assignedToId !== undefined ? data.assignedToId : undefined,
-        isOpen: data.assignedToId === null || data.assignedToId === "",
+        isOpen: data.isOpen !== undefined ? data.isOpen : (data.assignedToId === null || data.assignedToId === ""),
         status: data.status,
         categoryId: data.categoryId !== undefined ? data.categoryId : undefined,
         locationId: data.locationId !== undefined ? data.locationId : undefined,
         scheduledBreakMinutes: data.scheduledBreakMinutes !== undefined ? data.scheduledBreakMinutes : undefined,
+        handoverNotes: data.handoverNotes !== undefined ? data.handoverNotes : undefined,
       },
       include: {
         assignedTo: {

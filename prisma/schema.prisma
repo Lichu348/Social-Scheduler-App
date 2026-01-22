@@ -203,6 +203,7 @@ model Shift {
   endTime               DateTime
   status                String         @default("SCHEDULED")
   isOpen                Boolean        @default(false)
+  handoverNotes         String?        // Notes for shift handover between staff
   scheduledBreakMinutes Int            @default(0)
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
