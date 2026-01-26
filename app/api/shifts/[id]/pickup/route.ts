@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { checkUserCertifications, formatCertificationError } from "@/lib/certification-utils";
+import { createNotifications } from "@/lib/notifications";
 
 export async function POST(
   req: Request,
@@ -65,15 +66,15 @@ export async function POST(
       },
     });
 
-    await prisma.notification.createMany({
-      data: managers.map((manager) => ({
+    await createNotifications(
+      managers.map((manager) => ({
         userId: manager.id,
         type: "SHIFT_PICKUP",
         title: "Shift Picked Up",
         message: `${session.user.name} picked up the shift "${shift.title}"`,
         link: "/dashboard/schedule",
-      })),
-    });
+      }))
+    );
 
     return NextResponse.json(updatedShift);
   } catch (error) {

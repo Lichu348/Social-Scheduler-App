@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 
 // Generate a random temporary password
 function generateTempPassword(): string {
@@ -59,14 +60,12 @@ export async function POST(
     });
 
     // Create a notification for the user
-    await prisma.notification.create({
-      data: {
-        userId: id,
-        type: "PASSWORD_RESET",
-        title: "Password Reset",
-        message: "Your password has been reset by an administrator. Please use the temporary password provided and change it after logging in.",
-        link: "/dashboard/settings",
-      },
+    await createNotification({
+      userId: id,
+      type: "PASSWORD_RESET",
+      title: "Password Reset",
+      message: "Your password has been reset by an administrator. Please use the temporary password provided and change it after logging in.",
+      link: "/dashboard/settings",
     });
 
     return NextResponse.json({

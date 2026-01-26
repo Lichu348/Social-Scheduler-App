@@ -60,7 +60,8 @@ export function TimesheetExportForm({ locations }: TimesheetExportFormProps) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `timesheet_${formData.startDate}_to_${formData.endDate}.${formData.format}`;
+      const ext = formData.format === "xero" ? "csv" : formData.format;
+      a.download = `${formData.format === "xero" ? "xero_" : ""}timesheet_${formData.startDate}_to_${formData.endDate}.${ext}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -80,6 +81,7 @@ export function TimesheetExportForm({ locations }: TimesheetExportFormProps) {
   const formatOptions = [
     { value: "xlsx", label: "Excel (.xlsx)" },
     { value: "csv", label: "CSV (.csv)" },
+    { value: "xero", label: "Xero Payroll CSV" },
   ];
 
   // Quick date range buttons
@@ -218,13 +220,23 @@ export function TimesheetExportForm({ locations }: TimesheetExportFormProps) {
           <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium">Export includes:</span>
         </div>
-        <ul className="list-disc list-inside text-muted-foreground ml-6 space-y-1">
-          <li>Detailed timesheet with clock in/out times</li>
-          <li>Break durations and net hours</li>
-          <li>Shift categories and hourly rates</li>
-          <li>Calculated pay per entry</li>
-          <li>Summary sheet with totals per employee</li>
-        </ul>
+        {formData.format === "xero" ? (
+          <ul className="list-disc list-inside text-muted-foreground ml-6 space-y-1">
+            <li>Employee name and email</li>
+            <li>Pay period alignment</li>
+            <li>Hours aggregated per day per earnings rate</li>
+            <li>Per-user rate overrides applied</li>
+            <li>Ready for direct import into Xero Payroll</li>
+          </ul>
+        ) : (
+          <ul className="list-disc list-inside text-muted-foreground ml-6 space-y-1">
+            <li>Detailed timesheet with clock in/out times</li>
+            <li>Break durations and net hours</li>
+            <li>Shift categories and hourly rates</li>
+            <li>Calculated pay per entry</li>
+            <li>Summary sheet with totals per employee</li>
+          </ul>
+        )}
       </div>
     </div>
   );

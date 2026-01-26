@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendEmail, shiftReminderEmail, ShiftDetail } from "@/lib/email";
+import { createNotification } from "@/lib/notifications";
 
 // This route can be called by a cron job service (e.g., Vercel Cron, GitHub Actions)
 // to send shift reminders to employees
@@ -128,14 +129,12 @@ export async function GET(req: Request) {
 
             // Create in-app notification for each shift
             const shiftStartTime = new Date(shift.startTime);
-            await prisma.notification.create({
-              data: {
-                userId: user.id,
-                type: "SHIFT_REMINDER",
-                title: "Upcoming Shift Reminder",
-                message: `You have a shift "${shift.title}" on ${formattedDate} at ${shiftStartTime.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}. Shift ID: ${shift.id}`,
-                link: "/dashboard/schedule",
-              },
+            await createNotification({
+              userId: user.id,
+              type: "SHIFT_REMINDER",
+              title: "Upcoming Shift Reminder",
+              message: `You have a shift "${shift.title}" on ${formattedDate} at ${shiftStartTime.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}. Shift ID: ${shift.id}`,
+              link: "/dashboard/schedule",
             });
             totalReminders++;
           }

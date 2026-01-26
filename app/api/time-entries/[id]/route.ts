@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit, getRequestContext } from "@/lib/audit";
+import { createNotification } from "@/lib/notifications";
 
 export async function PATCH(
   req: Request,
@@ -64,15 +66,30 @@ export async function PATCH(
     if (rejectClockIn) {
       await prisma.timeEntry.delete({ where: { id } });
 
-      // Notify the user
-      await prisma.notification.create({
-        data: {
-          userId: entry.userId,
-          type: "CLOCKIN_REJECTED",
-          title: "Clock-in Rejected",
-          message: `Your ${entry.clockInFlag?.toLowerCase()} clock-in was rejected by a manager`,
-          link: "/dashboard/timesheet",
+      // Audit log for rejection
+      const { ipAddress, userAgent } = getRequestContext(req);
+      await logAudit({
+        action: "TIME_ENTRY_REJECTED",
+        userId: session.user.id,
+        organizationId: session.user.organizationId,
+        resourceType: "TimeEntry",
+        resourceId: id,
+        ipAddress,
+        userAgent,
+        metadata: {
+          targetUserId: entry.userId,
+          clockInFlag: entry.clockInFlag,
+          reason: "clockIn rejected",
         },
+      });
+
+      // Notify the user
+      await createNotification({
+        userId: entry.userId,
+        type: "CLOCKIN_REJECTED",
+        title: "Clock-in Rejected",
+        message: `Your ${entry.clockInFlag?.toLowerCase()} clock-in was rejected by a manager`,
+        link: "/dashboard/timesheet",
       });
 
       return NextResponse.json({ success: true, deleted: true });
@@ -91,42 +108,104 @@ export async function PATCH(
       },
     });
 
+    // Audit logging for time entry changes
+    const { ipAddress, userAgent } = getRequestContext(req);
+
+    // Log status change (approval/rejection of timesheet)
+    if (status) {
+      await logAudit({
+        action: status === "APPROVED" ? "TIME_ENTRY_APPROVED" : "TIME_ENTRY_UPDATED",
+        userId: session.user.id,
+        organizationId: session.user.organizationId,
+        resourceType: "TimeEntry",
+        resourceId: id,
+        ipAddress,
+        userAgent,
+        changes: {
+          before: { status: entry.status },
+          after: { status },
+        },
+        metadata: {
+          targetUserId: entry.userId,
+        },
+      });
+    }
+
+    // Log clock-in approval
+    if (approveClockIn) {
+      await logAudit({
+        action: "TIME_ENTRY_APPROVED",
+        userId: session.user.id,
+        organizationId: session.user.organizationId,
+        resourceType: "TimeEntry",
+        resourceId: id,
+        ipAddress,
+        userAgent,
+        metadata: {
+          targetUserId: entry.userId,
+          clockInFlag: entry.clockInFlag,
+          approvalType: "clockIn",
+        },
+      });
+    }
+
+    // Log time entry edits by manager
+    if ((clockIn !== undefined || clockOut !== undefined) && entry.userId !== session.user.id) {
+      await logAudit({
+        action: "TIME_ENTRY_UPDATED",
+        userId: session.user.id,
+        organizationId: session.user.organizationId,
+        resourceType: "TimeEntry",
+        resourceId: id,
+        ipAddress,
+        userAgent,
+        changes: {
+          before: {
+            clockIn: entry.clockIn,
+            clockOut: entry.clockOut,
+          },
+          after: {
+            clockIn: clockIn !== undefined ? new Date(clockIn) : entry.clockIn,
+            clockOut: clockOut !== undefined ? (clockOut ? new Date(clockOut) : null) : entry.clockOut,
+          },
+        },
+        metadata: {
+          targetUserId: entry.userId,
+          editedBy: "manager",
+        },
+      });
+    }
+
     // Notify the user only for status changes
     if (status) {
-      await prisma.notification.create({
-        data: {
-          userId: entry.userId,
-          type: status === "APPROVED" ? "TIMESHEET_APPROVED" : "TIMESHEET_REJECTED",
-          title: status === "APPROVED" ? "Timesheet Approved" : "Timesheet Rejected",
-          message: `Your time entry has been ${status.toLowerCase()}`,
-          link: "/dashboard/timesheet",
-        },
+      await createNotification({
+        userId: entry.userId,
+        type: status === "APPROVED" ? "TIMESHEET_APPROVED" : "TIMESHEET_REJECTED",
+        title: status === "APPROVED" ? "Timesheet Approved" : "Timesheet Rejected",
+        message: `Your time entry has been ${status.toLowerCase()}`,
+        link: "/dashboard/timesheet",
       });
     }
 
     // Notify user if their early/late clock-in was approved
     if (approveClockIn && entry.clockInFlag) {
-      await prisma.notification.create({
-        data: {
-          userId: entry.userId,
-          type: "CLOCKIN_APPROVED",
-          title: "Clock-in Approved",
-          message: `Your ${entry.clockInFlag.toLowerCase()} clock-in has been approved`,
-          link: "/dashboard/timesheet",
-        },
+      await createNotification({
+        userId: entry.userId,
+        type: "CLOCKIN_APPROVED",
+        title: "Clock-in Approved",
+        message: `Your ${entry.clockInFlag.toLowerCase()} clock-in has been approved`,
+        link: "/dashboard/timesheet",
       });
     }
 
     // Notify user if their time entry was edited by a manager
     if ((clockIn !== undefined || clockOut !== undefined) && entry.userId !== session.user.id) {
-      await prisma.notification.create({
-        data: {
-          userId: entry.userId,
-          type: "TIMESHEET_EDITED",
-          title: "Time Entry Updated",
-          message: "A manager has updated your time entry",
-          link: "/dashboard/timesheet",
-        },
+      await createNotification({
+        userId: entry.userId,
+        type: "TIMESHEET_EDITED",
+        title: "Time Entry Updated",
+        message: "A manager has updated your time entry",
+        link: "/dashboard/timesheet",
       });
     }
 

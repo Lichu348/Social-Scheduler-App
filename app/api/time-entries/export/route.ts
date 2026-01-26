@@ -3,6 +3,13 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import * as XLSX from "xlsx";
 
+function csvEscape(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -33,6 +40,146 @@ export async function GET(req: Request) {
 
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
+
+    // Handle Xero CSV export separately
+    if (format === "xero") {
+      const xeroEntries = await prisma.timeEntry.findMany({
+        where: {
+          user: {
+            organizationId: session.user.organizationId,
+            ...(locationId ? { primaryLocationId: locationId } : {}),
+          },
+          clockIn: { gte: start, lte: end },
+          clockOut: { not: null },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              categoryRates: {
+                select: { categoryId: true, hourlyRate: true },
+              },
+            },
+          },
+          shift: {
+            include: {
+              category: { select: { id: true, name: true, hourlyRate: true } },
+            },
+          },
+        },
+        orderBy: [{ user: { name: "asc" } }, { clockIn: "asc" }],
+      });
+
+      // Get pay periods for the date range
+      const payPeriods = await prisma.payPeriod.findMany({
+        where: {
+          organizationId: session.user.organizationId,
+          startDate: { lte: end },
+          endDate: { gte: start },
+        },
+        orderBy: { startDate: "asc" },
+      });
+
+      // Build a lookup: date -> pay period name
+      function getPayPeriod(date: Date): string {
+        for (const pp of payPeriods) {
+          if (date >= pp.startDate && date <= pp.endDate) {
+            return pp.name;
+          }
+        }
+        // Fallback: use month name
+        return date.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+      }
+
+      // Aggregate: employee + date + category -> total hours
+      const aggregated = new Map<
+        string,
+        {
+          employeeName: string;
+          employeeEmail: string;
+          date: Date;
+          earningsRate: string;
+          hours: number;
+          rate: number;
+        }
+      >();
+
+      for (const entry of xeroEntries) {
+        const clockIn = new Date(entry.clockIn);
+        const clockOut = new Date(entry.clockOut!);
+        const grossHours = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
+        const netHours = Math.max(0, grossHours - entry.totalBreak / 60);
+
+        const categoryName = entry.shift?.category?.name || "Uncategorized";
+        const categoryId = entry.shift?.category?.id;
+        const defaultRate = entry.shift?.category?.hourlyRate || 0;
+
+        // Check for user-specific rate override
+        const userOverride = categoryId
+          ? entry.user.categoryRates.find((r) => r.categoryId === categoryId)
+          : undefined;
+        const effectiveRate = userOverride ? userOverride.hourlyRate : defaultRate;
+
+        // Key: employee + date (YYYY-MM-DD) + category
+        const dateKey = clockIn.toISOString().split("T")[0];
+        const key = `${entry.user.id}|${dateKey}|${categoryName}`;
+
+        const existing = aggregated.get(key);
+        if (existing) {
+          existing.hours += netHours;
+        } else {
+          aggregated.set(key, {
+            employeeName: entry.user.name,
+            employeeEmail: entry.user.email,
+            date: clockIn,
+            earningsRate: categoryName,
+            hours: netHours,
+            rate: effectiveRate,
+          });
+        }
+      }
+
+      // Build CSV rows
+      const rows: string[] = [
+        "Employee Name,Employee Email,Pay Period,Date,Earnings Rate,Number of Units,Rate,Amount",
+      ];
+
+      for (const row of aggregated.values()) {
+        const dateStr = row.date.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
+        const payPeriod = getPayPeriod(row.date);
+        const units = Number(row.hours.toFixed(2));
+        const amount = Number((row.hours * row.rate).toFixed(2));
+
+        rows.push(
+          [
+            csvEscape(row.employeeName),
+            csvEscape(row.employeeEmail),
+            csvEscape(payPeriod),
+            dateStr,
+            csvEscape(row.earningsRate),
+            units,
+            row.rate.toFixed(2),
+            amount.toFixed(2),
+          ].join(",")
+        );
+      }
+
+      const csvContent = rows.join("\n");
+      const filename = `xero_timesheet_${startDate}_to_${endDate}.csv`;
+
+      return new NextResponse(csvContent, {
+        headers: {
+          "Content-Type": "text/csv",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    }
 
     // Fetch time entries with related data
     const entries = await prisma.timeEntry.findMany({

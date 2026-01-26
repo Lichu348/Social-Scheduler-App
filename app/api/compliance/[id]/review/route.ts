@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { logAudit, getRequestContext } from "@/lib/audit";
+import { createNotification } from "@/lib/notifications";
 
 // POST - Manager conducts a performance review
 export async function POST(
@@ -126,15 +128,32 @@ export async function POST(
       },
     });
 
-    // Create notification for the employee
-    await prisma.notification.create({
-      data: {
-        userId,
-        type: "REVIEW_COMPLETED",
-        title: "Performance Review Ready",
-        message: `Your performance review has been completed by ${session.user.name}. Please review and acknowledge.`,
-        link: "/dashboard/compliance",
+    // Audit log for review completion
+    const { ipAddress, userAgent } = getRequestContext(req);
+    await logAudit({
+      action: "COMPLIANCE_REVIEW_COMPLETED",
+      userId: session.user.id,
+      organizationId: session.user.organizationId,
+      resourceType: "UserCompliance",
+      resourceId: record.id,
+      ipAddress,
+      userAgent,
+      metadata: {
+        targetUserId: userId,
+        targetUserName: record.user.name,
+        complianceItemId: id,
+        complianceItemName: record.complianceItem.name,
+        rating,
       },
+    });
+
+    // Create notification for the employee
+    await createNotification({
+      userId,
+      type: "REVIEW_COMPLETED",
+      title: "Performance Review Ready",
+      message: `Your performance review has been completed by ${session.user.name}. Please review and acknowledge.`,
+      link: "/dashboard/compliance",
     });
 
     return NextResponse.json({
@@ -219,14 +238,12 @@ export async function PATCH(
 
     // Notify the reviewer
     if (record.reviewedById) {
-      await prisma.notification.create({
-        data: {
-          userId: record.reviewedById,
-          type: "REVIEW_ACKNOWLEDGED",
-          title: "Review Acknowledged",
-          message: `${session.user.name} has acknowledged their performance review.`,
-          link: "/dashboard/compliance",
-        },
+      await createNotification({
+        userId: record.reviewedById,
+        type: "REVIEW_ACKNOWLEDGED",
+        title: "Review Acknowledged",
+        message: `${session.user.name} has acknowledged their performance review.`,
+        link: "/dashboard/compliance",
       });
     }
 

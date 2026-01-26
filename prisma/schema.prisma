@@ -150,6 +150,20 @@ model Notification {
   @@index([userId, isRead, createdAt])
 }
 
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model Organization {
   id                    String                 @id @default(cuid())
   name                  String
@@ -193,6 +207,7 @@ model Organization {
   taskTemplates         TaskTemplate[]
   weeklyTasks           WeeklyTask[]
   dailyNotes            DailyNote[]
+  auditLogs             AuditLog[]
 }
 
 model Shift {
@@ -229,6 +244,8 @@ model Shift {
   @@index([locationId])
   @@index([organizationId])
   @@index([startTime, endTime])
+  @@index([organizationId, isOpen]) // Open shifts query
+  @@index([organizationId, startTime, endTime]) // Schedule queries
 }
 
 // Shift segments allow a single shift to have multiple categories
@@ -374,6 +391,7 @@ model TimeEntry {
   @@index([userId])
   @@index([clockInApproved])
   @@index([userId, shiftId])
+  @@index([userId, clockOut]) // Find active time entry for user
 }
 
 // UNIFIED COMPLIANCE SYSTEM
@@ -504,6 +522,7 @@ model User {
   messagesSent      Message[]           @relation("Message_senderIdToUser")
   messageReads      MessageRead[]
   notifications     Notification[]
+  pushSubscriptions PushSubscription[]
   assignedShifts    Shift[]             @relation("Shift_assignedToIdToUser")
   createdShifts     Shift[]             @relation("Shift_createdByIdToUser")
   availability      StaffAvailability[]
@@ -528,6 +547,7 @@ model User {
   tasksCompleted           WeeklyTask[]         @relation("TasksCompleted")
   dailyNotesCreated        DailyNote[]          @relation("DailyNotesCreated")
   starterForm              StarterForm?
+  auditLogs                AuditLog[]
 
   @@index([email])
   @@index([organizationId])
@@ -1084,6 +1104,32 @@ model DailyNote {
   @@index([organizationId])
   @@index([locationId])
   @@index([date])
+}
+
+// AUDIT LOGGING
+// Track sensitive operations for security and compliance
+model AuditLog {
+  id              String   @id @default(cuid())
+  action          String   // e.g., "STARTER_FORM_VIEWED", "CASH_TRANSACTION_CREATED"
+  resourceType    String   // e.g., "StarterForm", "TimeEntry"
+  resourceId      String?
+  userId          String
+  organizationId  String
+  ipAddress       String?
+  userAgent       String?
+  changes         String?  // JSON: { before: {...}, after: {...} }
+  metadata        String?  // JSON: Additional context (e.g., reason for access)
+  sensitiveAccess Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  user            User         @relation(fields: [userId], references: [id])
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@index([sensitiveAccess, createdAt])
 }
 
 // NEW STARTER FORMS

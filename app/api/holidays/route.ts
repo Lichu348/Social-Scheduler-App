@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createNotifications } from "@/lib/notifications";
 
 export async function GET(req: Request) {
   try {
@@ -94,15 +95,15 @@ export async function POST(req: Request) {
       },
     });
 
-    await prisma.notification.createMany({
-      data: managers.map((manager) => ({
+    await createNotifications(
+      managers.map((manager) => ({
         userId: manager.id,
         type: "HOLIDAY_REQUEST",
         title: "Holiday Request",
         message: `${session.user.name} requested ${hours} hours off`,
         link: "/dashboard/holidays",
-      })),
-    });
+      }))
+    );
 
     return NextResponse.json(request);
   } catch (error) {

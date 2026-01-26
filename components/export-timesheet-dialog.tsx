@@ -111,7 +111,8 @@ export function ExportTimesheetDialog() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `timesheet_${formData.startDate}_to_${formData.endDate}.${formData.format}`;
+      const ext = formData.format === "xero" ? "csv" : formData.format;
+      a.download = `${formData.format === "xero" ? "xero_" : ""}timesheet_${formData.startDate}_to_${formData.endDate}.${ext}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -128,6 +129,7 @@ export function ExportTimesheetDialog() {
   const formatOptions = [
     { value: "xlsx", label: "Excel (.xlsx)" },
     { value: "csv", label: "CSV (.csv)" },
+    { value: "xero", label: "Xero Payroll CSV" },
   ];
 
   return (
@@ -239,15 +241,30 @@ export function ExportTimesheetDialog() {
           </div>
 
           <div className="text-sm text-muted-foreground space-y-1">
-            <p>The export will include:</p>
-            <ul className="list-disc list-inside ml-2">
-              <li>Employee name and email</li>
-              <li>Clock in/out times and breaks</li>
-              <li>Gross and net hours</li>
-              <li>Shift category and hourly rate</li>
-              <li>Calculated total pay</li>
-              <li>Summary by employee</li>
-            </ul>
+            {formData.format === "xero" ? (
+              <>
+                <p>Xero Payroll CSV includes:</p>
+                <ul className="list-disc list-inside ml-2">
+                  <li>Employee name and email</li>
+                  <li>Pay period alignment</li>
+                  <li>Hours aggregated per day per earnings rate</li>
+                  <li>Per-user rate overrides applied</li>
+                  <li>Ready for direct import into Xero Payroll</li>
+                </ul>
+              </>
+            ) : (
+              <>
+                <p>The export will include:</p>
+                <ul className="list-disc list-inside ml-2">
+                  <li>Employee name and email</li>
+                  <li>Clock in/out times and breaks</li>
+                  <li>Gross and net hours</li>
+                  <li>Shift category and hourly rate</li>
+                  <li>Calculated total pay</li>
+                  <li>Summary by employee</li>
+                </ul>
+              </>
+            )}
           </div>
         </div>
         <DialogFooter className="flex-shrink-0 pt-4">

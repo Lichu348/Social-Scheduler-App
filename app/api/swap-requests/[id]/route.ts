@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 
 export async function PATCH(
   req: Request,
@@ -61,25 +62,21 @@ export async function PATCH(
       }
 
       // Notify the requester
-      await prisma.notification.create({
-        data: {
-          userId: request.fromUserId,
-          type: "REQUEST_APPROVED",
-          title: "Request Approved",
-          message: `Your ${request.type} request for "${request.shift.title}" has been approved`,
-          link: "/dashboard/schedule",
-        },
+      await createNotification({
+        userId: request.fromUserId,
+        type: "REQUEST_APPROVED",
+        title: "Request Approved",
+        message: `Your ${request.type} request for "${request.shift.title}" has been approved`,
+        link: "/dashboard/schedule",
       });
     } else if (status === "REJECTED") {
       // Notify the requester
-      await prisma.notification.create({
-        data: {
-          userId: request.fromUserId,
-          type: "REQUEST_REJECTED",
-          title: "Request Rejected",
-          message: `Your ${request.type} request for "${request.shift.title}" has been rejected`,
-          link: "/dashboard/swaps",
-        },
+      await createNotification({
+        userId: request.fromUserId,
+        type: "REQUEST_REJECTED",
+        title: "Request Rejected",
+        message: `Your ${request.type} request for "${request.shift.title}" has been rejected`,
+        link: "/dashboard/swaps",
       });
     }
 

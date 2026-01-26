@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 
 export async function PATCH(
   req: Request,
@@ -59,14 +60,12 @@ export async function PATCH(
       });
 
       // Notify the requester
-      await prisma.notification.create({
-        data: {
-          userId: existingRequest.requestedById,
-          type: body.status === "APPROVED" ? "SPEND_APPROVED" : "SPEND_REJECTED",
-          title: body.status === "APPROVED" ? "Spend Request Approved" : "Spend Request Rejected",
-          message: `Your spend request "${existingRequest.title}" has been ${body.status.toLowerCase()}${body.reviewNotes ? `: ${body.reviewNotes}` : ""}`,
-          link: "/dashboard/spend",
-        },
+      await createNotification({
+        userId: existingRequest.requestedById,
+        type: body.status === "APPROVED" ? "SPEND_APPROVED" : "SPEND_REJECTED",
+        title: body.status === "APPROVED" ? "Spend Request Approved" : "Spend Request Rejected",
+        message: `Your spend request "${existingRequest.title}" has been ${body.status.toLowerCase()}${body.reviewNotes ? `: ${body.reviewNotes}` : ""}`,
+        link: "/dashboard/spend",
       });
 
       return NextResponse.json(updatedRequest);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 
 // This route should be called by a cron job at midnight
 // It flags time entries where staff forgot to clock out
@@ -78,14 +79,12 @@ export async function GET(req: Request) {
       });
 
       for (const manager of managers) {
-        await prisma.notification.create({
-          data: {
-            userId: manager.id,
-            type: "MISSED_CLOCK_OUT",
-            title: "Missed Clock Out",
-            message: `${entry.user.name} forgot to clock out. Clocked in ${clockInDate} at ${clockInTime}.`,
-            link: "/dashboard/timesheet",
-          },
+        await createNotification({
+          userId: manager.id,
+          type: "MISSED_CLOCK_OUT",
+          title: "Missed Clock Out",
+          message: `${entry.user.name} forgot to clock out. Clocked in ${clockInDate} at ${clockInTime}.`,
+          link: "/dashboard/timesheet",
         });
       }
 

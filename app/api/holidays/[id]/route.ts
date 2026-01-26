@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 
 export async function PATCH(
   req: Request,
@@ -45,14 +46,12 @@ export async function PATCH(
     }
 
     // Notify the user
-    await prisma.notification.create({
-      data: {
-        userId: request.userId,
-        type: status === "APPROVED" ? "HOLIDAY_APPROVED" : "HOLIDAY_REJECTED",
-        title: status === "APPROVED" ? "Holiday Approved" : "Holiday Rejected",
-        message: `Your holiday request has been ${status.toLowerCase()}`,
-        link: "/dashboard/holidays",
-      },
+    await createNotification({
+      userId: request.userId,
+      type: status === "APPROVED" ? "HOLIDAY_APPROVED" : "HOLIDAY_REJECTED",
+      title: status === "APPROVED" ? "Holiday Approved" : "Holiday Rejected",
+      message: `Your holiday request has been ${status.toLowerCase()}`,
+      link: "/dashboard/holidays",
     });
 
     return NextResponse.json(updatedRequest);

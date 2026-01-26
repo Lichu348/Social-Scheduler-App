@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { createNotification, createNotifications } from "@/lib/notifications";
 
 // This route runs daily to:
 // 1. Send notifications for certifications expiring in 14 days
@@ -59,14 +60,12 @@ export async function GET(req: Request) {
       );
 
       // Notify the staff member
-      await prisma.notification.create({
-        data: {
-          userId: cert.user.id,
-          type: "CERTIFICATION_EXPIRY",
-          title: "Certification Expiring Soon",
-          message: `Your ${cert.certificationType.name} certification expires in ${daysUntilExpiry} days`,
-          link: "/dashboard/certifications",
-        },
+      await createNotification({
+        userId: cert.user.id,
+        type: "CERTIFICATION_EXPIRY",
+        title: "Certification Expiring Soon",
+        message: `Your ${cert.certificationType.name} certification expires in ${daysUntilExpiry} days`,
+        link: "/dashboard/certifications",
       });
 
       // Notify all managers and admins in the organization
@@ -79,15 +78,15 @@ export async function GET(req: Request) {
       });
 
       if (managers.length > 0) {
-        await prisma.notification.createMany({
-          data: managers.map((manager) => ({
+        await createNotifications(
+          managers.map((manager) => ({
             userId: manager.id,
             type: "CERTIFICATION_EXPIRY",
             title: "Staff Certification Expiring",
             message: `${cert.user.name}'s ${cert.certificationType.name} certification expires in ${daysUntilExpiry} days`,
             link: "/dashboard/certifications",
-          })),
-        });
+          }))
+        );
       }
 
       // Update lastExpiryNotification to prevent duplicates

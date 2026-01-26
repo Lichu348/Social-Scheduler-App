@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createNotifications } from "@/lib/notifications";
 
 export async function GET(req: Request) {
   try {
@@ -143,15 +144,15 @@ export async function POST(req: Request) {
       },
     });
 
-    await prisma.notification.createMany({
-      data: admins.map((admin) => ({
+    await createNotifications(
+      admins.map((admin) => ({
         userId: admin.id,
         type: "SPEND_REQUEST",
         title: "New Spend Request",
         message: `${session.user.name} requested £${amount.toFixed(2)} for ${title}`,
         link: "/dashboard/spend",
-      })),
-    });
+      }))
+    );
 
     return NextResponse.json(request);
   } catch (error) {

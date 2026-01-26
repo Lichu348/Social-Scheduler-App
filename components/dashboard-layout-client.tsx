@@ -4,6 +4,7 @@ import { SidebarProvider, useSidebar } from "@/components/sidebar-context";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
+import { PushNotificationManager } from "@/components/push-notification-manager";
 
 interface DashboardLayoutClientProps {
   user: {
@@ -27,6 +28,9 @@ function MobileHeader() {
         <span className="sr-only">Toggle menu</span>
       </Button>
       <span className="font-semibold">ShiftFlow</span>
+      <div className="ml-auto">
+        <PushNotificationManager />
+      </div>
     </div>
   );
 }
@@ -37,6 +41,9 @@ function DashboardContent({ user, children }: DashboardLayoutClientProps) {
       <Sidebar user={user} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <MobileHeader />
+        <div className="hidden md:flex h-14 items-center justify-end border-b bg-card px-4">
+          <PushNotificationManager />
+        </div>
         <main className="flex-1 overflow-y-auto bg-muted/30">
           {children}
         </main>
