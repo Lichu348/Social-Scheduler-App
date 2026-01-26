@@ -10,11 +10,20 @@ import {
   useSensors,
   DragStartEvent,
   DragEndEvent,
+  closestCenter,
+  rectIntersection,
+  type CollisionDetection,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import { ShiftTemplateSidebar } from "./shift-template-sidebar";
 import { ScheduleGrid } from "./schedule-grid";
 import { QuickAssignDialog } from "./quick-assign-dialog";
 import { DraggableTemplateOverlay } from "./draggable-template";
+import { StaffRowDragOverlay } from "./schedule-grid/staff-row-drag-overlay";
 
 interface ShiftCategory {
   id: string;
@@ -127,6 +136,8 @@ export function ScheduleGridWithDnd({
 }: ScheduleGridWithDndProps) {
   const [mounted, setMounted] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<ShiftTemplate | null>(null);
+  const [activeStaffUser, setActiveStaffUser] = useState<User | null>(null);
+  const [sortedUsers, setSortedUsers] = useState(users);
   const [quickAssignOpen, setQuickAssignOpen] = useState(false);
   const [dropTemplate, setDropTemplate] = useState<ShiftTemplate | null>(null);
   const [dropDate, setDropDate] = useState<Date | null>(null);
@@ -135,6 +146,10 @@ export function ScheduleGridWithDnd({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    setSortedUsers(users);
+  }, [users]);
 
   const mouseSensor = useSensor(MouseSensor, {
     activationConstraint: {
@@ -150,19 +165,63 @@ export function ScheduleGridWithDnd({
 
   const sensors = useSensors(mouseSensor, touchSensor);
 
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    const activeType = args.active.data.current?.type;
+
+    if (activeType === "staff-row") {
+      const staffContainers = args.droppableContainers.filter(
+        (container) => container.data.current?.type === "staff-row"
+      );
+      return closestCenter({ ...args, droppableContainers: staffContainers });
+    }
+
+    // For template drags, only collide with grid-cell droppables
+    const gridContainers = args.droppableContainers.filter(
+      (container) => container.data.current?.type === "grid-cell"
+    );
+    return rectIntersection({ ...args, droppableContainers: gridContainers });
+  }, []);
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event;
     if (active.data.current?.type === "template") {
       setActiveTemplate(active.data.current.template);
+    } else if (active.data.current?.type === "staff-row") {
+      setActiveStaffUser(active.data.current.user as User);
     }
   }, []);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTemplate(null);
+    setActiveStaffUser(null);
 
     if (!over) return;
 
+    // Staff row reordering
+    if (
+      active.data.current?.type === "staff-row" &&
+      over.data.current?.type === "staff-row" &&
+      active.id !== over.id
+    ) {
+      setSortedUsers((prev) => {
+        const oldIndex = prev.findIndex((u) => u.id === active.id);
+        const newIndex = prev.findIndex((u) => u.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return prev;
+        const reordered = arrayMove(prev, oldIndex, newIndex);
+        // Fire-and-forget API call for persistence
+        const order = reordered.map((u, i) => ({ id: u.id, sortOrder: i }));
+        fetch("/api/team/reorder", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order }),
+        });
+        return reordered;
+      });
+      return;
+    }
+
+    // Template drop onto grid cell
     if (over.data.current?.type === "grid-cell" && active.data.current?.type === "template") {
       const template = active.data.current.template as ShiftTemplate;
       const date = over.data.current.date as Date;
@@ -177,6 +236,7 @@ export function ScheduleGridWithDnd({
 
   const handleDragCancel = useCallback(() => {
     setActiveTemplate(null);
+    setActiveStaffUser(null);
   }, []);
 
   const handleQuickAssignSuccess = useCallback(() => {
@@ -208,6 +268,7 @@ export function ScheduleGridWithDnd({
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
@@ -215,27 +276,35 @@ export function ScheduleGridWithDnd({
       <div className="flex gap-4">
         {showSidebar && <ShiftTemplateSidebar className="flex-shrink-0 rounded-lg border shadow-sm" />}
         <div className="flex-1 min-w-0">
-          <ScheduleGrid
-            shifts={shifts}
-            users={users}
-            currentUserId={currentUserId}
-            isManager={isManager}
-            availability={availability}
-            locationId={locationId}
-            enableDroppable={true}
-            categories={categories}
-            locations={locations}
-            holidays={holidays}
-            events={events}
-            breakRules={breakRules}
-            breakCalculationMode={breakCalculationMode}
-          />
+          <SortableContext
+            items={sortedUsers.map((u) => u.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <ScheduleGrid
+              shifts={shifts}
+              users={sortedUsers}
+              currentUserId={currentUserId}
+              isManager={isManager}
+              availability={availability}
+              locationId={locationId}
+              enableDroppable={true}
+              enableSortableRows={true}
+              categories={categories}
+              locations={locations}
+              holidays={holidays}
+              events={events}
+              breakRules={breakRules}
+              breakCalculationMode={breakCalculationMode}
+            />
+          </SortableContext>
         </div>
       </div>
 
       <DragOverlay>
         {activeTemplate ? (
           <DraggableTemplateOverlay template={activeTemplate} />
+        ) : activeStaffUser ? (
+          <StaffRowDragOverlay user={activeStaffUser} />
         ) : null}
       </DragOverlay>
 
@@ -244,7 +313,7 @@ export function ScheduleGridWithDnd({
         onOpenChange={setQuickAssignOpen}
         template={dropTemplate}
         targetDate={dropDate}
-        users={users}
+        users={sortedUsers}
         locationId={locationId}
         defaultUserId={dropUserId}
         onSuccess={handleQuickAssignSuccess}
