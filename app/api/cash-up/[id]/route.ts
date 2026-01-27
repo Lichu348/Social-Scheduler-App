@@ -71,7 +71,7 @@ export async function PATCH(
 
     const user = session.user as ExtendedUser;
 
-    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+    if (user.role !== "ADMIN" && user.role !== "MANAGER" && user.role !== "DUTY_MANAGER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -92,6 +92,12 @@ export function TeamMemberActions({ userId, currentRole, currentStaffRole }: Tea
             Make Manager
           </DropdownMenuItem>
         )}
+        {currentRole !== "DUTY_MANAGER" && (
+          <DropdownMenuItem onClick={() => handleRoleChange("DUTY_MANAGER")}>
+            <UserCog className="mr-2 h-4 w-4" />
+            Make Duty Manager
+          </DropdownMenuItem>
+        )}
         {currentRole !== "EMPLOYEE" && (
           <DropdownMenuItem onClick={() => handleRoleChange("EMPLOYEE")}>
             <UserCog className="mr-2 h-4 w-4" />

@@ -154,7 +154,7 @@ export default async function CashPage({
   if (!session?.user) return null;
 
   const params = await searchParams;
-  const isManager = session.user.role === "MANAGER" || session.user.role === "ADMIN";
+  const isManager = session.user.role === "MANAGER" || session.user.role === "ADMIN" || session.user.role === "DUTY_MANAGER";
   const isAdmin = session.user.role === "ADMIN";
 
   const { transactions, locations, runningTotal, todayIn, todayOut } = await getCashData(

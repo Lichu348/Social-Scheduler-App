@@ -12,13 +12,20 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only admins can change roles
-    if (session.user.role !== "ADMIN") {
+    // Admins can do everything; managers can update holidayBalance
+    if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
     const { name, email, role, staffRole, holidayBalance, phone, primaryLocationId, paymentType, monthlySalary, contractedHours, sortOrder } = await req.json();
+
+    // Managers can only update holidayBalance and staffRole
+    if (session.user.role === "MANAGER") {
+      if (role !== undefined || name !== undefined || email !== undefined || paymentType !== undefined || monthlySalary !== undefined || contractedHours !== undefined || sortOrder !== undefined) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
 
     const user = await prisma.user.findUnique({
       where: { id },

@@ -9,7 +9,7 @@ export const createUserSchema = z.object({
   email: emailSchema,
   name: z.string().min(1, "Name is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["EMPLOYEE", "MANAGER", "ADMIN"]).optional(),
+  role: z.enum(["EMPLOYEE", "DUTY_MANAGER", "MANAGER", "ADMIN"]).optional(),
   staffRole: z.enum(["DESK", "COACH", "SETTER", "INSTRUCTOR"]).optional(),
   primaryLocationId: idSchema.optional().nullable(),
 });
@@ -60,3 +60,45 @@ export const createComplianceItemSchema = z.object({
   fileName: z.string().optional().nullable(),
   requiresProof: z.boolean().optional(),
 });
+
+// Cash transaction schemas
+export const createCashTransactionSchema = z.object({
+  type: z.enum(["TAKING", "BANKING", "PURCHASE", "ADJUSTMENT"], {
+    error: "Invalid transaction type",
+  }),
+  amount: z.number({ error: "Amount is required" }),
+  notes: z.string().optional().nullable(),
+  locationId: idSchema.optional().nullable(),
+});
+
+// Cash up session schemas
+export const createCashUpSessionSchema = z.object({
+  date: z.string().datetime({ error: "Invalid date format" }),
+  locationId: idSchema,
+  expectedCash: z.number().optional(),
+  expectedPdq: z.number().optional(),
+  expectedOnline: z.number().optional(),
+  expectedZRead: z.number().optional(),
+  actualCash: z.number().optional(),
+  actualPdq: z.number().optional(),
+  actualOnline: z.number().optional(),
+  actualZRead: z.number().optional(),
+  giftCardsRedeemed: z.number().optional(),
+  notes: z.string().optional().nullable(),
+  status: z.enum(["DRAFT", "SUBMITTED", "REVIEWED"]).optional(),
+});
+
+// Manual time entry schemas
+export const createManualTimeEntrySchema = z.object({
+  userId: idSchema,
+  shiftId: idSchema.optional().nullable(),
+  clockIn: z.string().datetime({ error: "Invalid clock-in time format" }),
+  clockOut: z.string().datetime({ error: "Invalid clock-out time format" }).optional().nullable(),
+  notes: z.string().optional().nullable(),
+}).refine(
+  (data) => !data.clockOut || new Date(data.clockIn) < new Date(data.clockOut),
+  {
+    message: "Clock-out must be after clock-in",
+    path: ["clockOut"],
+  }
+);

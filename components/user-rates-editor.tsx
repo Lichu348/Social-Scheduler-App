@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,11 +30,7 @@ export function UserRatesEditor({ userId, userName }: UserRatesEditorProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchRates();
-  }, [userId]);
-
-  const fetchRates = async () => {
+  const fetchRates = useCallback(async () => {
     try {
       const res = await fetch(`/api/team/${userId}/rates`);
       if (res.ok) {
@@ -50,12 +46,16 @@ export function UserRatesEditor({ userId, userName }: UserRatesEditorProps) {
         const data = await res.json();
         setError(data.error || "Failed to load rates");
       }
-    } catch (err) {
+    } catch {
       setError("Failed to load rates");
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    fetchRates();
+  }, [fetchRates]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -80,7 +80,7 @@ export function UserRatesEditor({ userId, userName }: UserRatesEditorProps) {
         const data = await res.json();
         setError(data.error || "Failed to save rates");
       }
-    } catch (err) {
+    } catch {
       setError("Failed to save rates");
     } finally {
       setSaving(false);

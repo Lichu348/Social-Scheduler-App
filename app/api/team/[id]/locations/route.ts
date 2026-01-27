@@ -51,8 +51,8 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only admins can modify location assignments
-    if (session.user.role !== "ADMIN") {
+    // Only admins and managers can modify location assignments
+    if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

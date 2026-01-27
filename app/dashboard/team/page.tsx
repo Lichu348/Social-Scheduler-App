@@ -137,6 +137,8 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
         return <Badge variant="default">Admin</Badge>;
       case "MANAGER":
         return <Badge variant="secondary">Manager</Badge>;
+      case "DUTY_MANAGER":
+        return <Badge variant="secondary" className="border-amber-500 text-amber-600">Duty Manager</Badge>;
       default:
         return <Badge variant="outline">Employee</Badge>;
     }
@@ -164,6 +166,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
 
   const admins = users.filter((u) => u.role === "ADMIN");
   const managers = users.filter((u) => u.role === "MANAGER");
+  const dutyManagers = users.filter((u) => u.role === "DUTY_MANAGER");
   const employees = users.filter((u) => u.role === "EMPLOYEE");
 
   // Holiday summary stats for managers
@@ -205,7 +208,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
       </div>
 
       {/* Team Stats */}
-      <div className="grid gap-4 md:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-5 mb-8">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Members</CardTitle>
@@ -228,6 +231,14 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{managers.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Duty Managers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{dutyManagers.length}</p>
           </CardContent>
         </Card>
         <Card>
@@ -370,7 +381,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                         </p>
                       )}
                     </div>
-                    {isAdmin && (
+                    {isManager && (
                       <HolidayAllowanceDialog
                         userId={user.id}
                         userName={user.name}
@@ -399,7 +410,7 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                         currentSalary={user.monthlySalary}
                       />
                     )}
-                    {isAdmin && locations.length > 0 && (
+                    {isManager && locations.length > 0 && (
                       <StaffLocationsDialog
                         userId={user.id}
                         userName={user.name}

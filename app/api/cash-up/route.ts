@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createCashUpSessionSchema } from "@/lib/schemas";
 
 interface ExtendedUser {
   id: string;
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
 
     const user = session.user as ExtendedUser;
 
-    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+    if (user.role !== "ADMIN" && user.role !== "MANAGER" && user.role !== "DUTY_MANAGER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -72,11 +73,21 @@ export async function POST(req: Request) {
 
     const user = session.user as ExtendedUser;
 
-    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+    if (user.role !== "ADMIN" && user.role !== "MANAGER" && user.role !== "DUTY_MANAGER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await req.json();
+    const parseResult = createCashUpSessionSchema.safeParse(body);
+
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0];
+      return NextResponse.json(
+        { error: firstError.message },
+        { status: 400 }
+      );
+    }
+
     const {
       date,
       locationId,
@@ -86,14 +97,7 @@ export async function POST(req: Request) {
       actualPdq,
       notes,
       status,
-    } = body;
-
-    if (!date || !locationId) {
-      return NextResponse.json(
-        { error: "Date and location are required" },
-        { status: 400 }
-      );
-    }
+    } = parseResult.data;
 
     // Verify location belongs to org
     const location = await prisma.location.findFirst({
