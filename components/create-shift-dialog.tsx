@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,15 +48,38 @@ interface CertificationWarning {
   expiredCertifications: { id: string; name: string }[];
 }
 
+interface Shift {
+  id: string;
+  title: string;
+  description: string | null;
+  startTime: Date;
+  endTime: Date;
+  status: string;
+  isOpen: boolean;
+  scheduledBreakMinutes?: number;
+  assignedTo: { id: string; name: string; email: string } | null;
+  category?: ShiftCategory | null;
+}
+
 interface CreateShiftDialogProps {
   users: User[];
   breakRules?: string;
   locations?: Location[];
   defaultLocationId?: string | null;
+  onShiftCreated?: (shift: Shift) => void;
+  onShiftConfirmed?: (tempId: string, serverShift: Shift) => void;
+  onShiftRollback?: (tempId: string) => void;
 }
 
-export function CreateShiftDialog({ users, breakRules, locations = [], defaultLocationId }: CreateShiftDialogProps) {
-  const router = useRouter();
+export function CreateShiftDialog({
+  users,
+  breakRules,
+  locations = [],
+  defaultLocationId,
+  onShiftCreated,
+  onShiftConfirmed,
+  onShiftRollback,
+}: CreateShiftDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,45 +173,93 @@ export function CreateShiftDialog({ users, breakRules, locations = [], defaultLo
     setLoading(true);
     setError(null);
 
-    try {
-      const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
-      const endDateTime = new Date(`${formData.date}T${formData.endTime}`);
+    const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
+    const endDateTime = new Date(`${formData.date}T${formData.endTime}`);
 
+    // Find the assigned user and category info for the optimistic update
+    const assignedUser = formData.assignedToId
+      ? users.find((u) => u.id === formData.assignedToId)
+      : null;
+    const selectedCategory = formData.categoryId
+      ? categories.find((c) => c.id === formData.categoryId)
+      : null;
+
+    // Generate a temporary ID for optimistic update
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create optimistic shift
+    const optimisticShift: Shift = {
+      id: tempId,
+      title: formData.title,
+      description: formData.description || null,
+      startTime: startDateTime,
+      endTime: endDateTime,
+      status: "SCHEDULED",
+      isOpen: !formData.assignedToId,
+      assignedTo: assignedUser
+        ? { id: assignedUser.id, name: assignedUser.name, email: assignedUser.email }
+        : null,
+      category: selectedCategory || null,
+      scheduledBreakMinutes: scheduledBreak,
+    };
+
+    // Optimistically add the shift
+    onShiftCreated?.(optimisticShift);
+
+    // Close the dialog and reset form immediately for better UX
+    setOpen(false);
+    const savedFormData = { ...formData };
+    setFormData({
+      title: "",
+      description: "",
+      date: "",
+      startTime: "",
+      endTime: "",
+      assignedToId: "",
+      categoryId: "",
+      locationId: defaultLocationId || "",
+    });
+
+    try {
       const res = await fetch("/api/shifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: formData.title,
-          description: formData.description || null,
+          title: savedFormData.title,
+          description: savedFormData.description || null,
           startTime: startDateTime.toISOString(),
           endTime: endDateTime.toISOString(),
-          assignedToId: formData.assignedToId || null,
-          categoryId: formData.categoryId || null,
-          locationId: formData.locationId || null,
+          assignedToId: savedFormData.assignedToId || null,
+          categoryId: savedFormData.categoryId || null,
+          locationId: savedFormData.locationId || null,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        setOpen(false);
-        setFormData({
-          title: "",
-          description: "",
-          date: "",
-          startTime: "",
-          endTime: "",
-          assignedToId: "",
-          categoryId: "",
-          locationId: defaultLocationId || "",
+        // Confirm the optimistic update with server data
+        onShiftConfirmed?.(tempId, {
+          ...data,
+          startTime: new Date(data.startTime),
+          endTime: new Date(data.endTime),
         });
-        router.refresh();
       } else {
+        // Rollback the optimistic update
+        onShiftRollback?.(tempId);
         setError(data.error || "Failed to create shift. Please try logging out and back in.");
+        // Restore form data and reopen dialog
+        setFormData(savedFormData);
+        setOpen(true);
       }
     } catch (error) {
       console.error("Failed to create shift:", error);
+      // Rollback the optimistic update
+      onShiftRollback?.(tempId);
       setError("Failed to create shift. Please try again.");
+      // Restore form data and reopen dialog
+      setFormData(savedFormData);
+      setOpen(true);
     } finally {
       setLoading(false);
     }

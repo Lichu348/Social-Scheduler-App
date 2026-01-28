@@ -1,18 +1,20 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { ScheduleGridWithDnd } from "@/components/schedule-grid-with-dnd";
-import { CreateShiftDialog } from "@/components/create-shift-dialog";
-import { CreateEventDialog } from "@/components/create-event-dialog";
-import { LocationScheduleFilter } from "@/components/location-schedule-filter";
-import { WeeklyForecastCard } from "@/components/weekly-forecast-card";
+import { SchedulePageContent } from "@/components/schedule-page-content";
 
 async function getScheduleData(organizationId: string, userId: string, role: string, locationId?: string | null) {
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  // Calculate date range: current week with some buffer for navigation
+  // Start from beginning of current week (Monday)
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0, so it's 6 days from Monday
 
-  const endOfMonth = new Date(startOfMonth);
-  endOfMonth.setMonth(endOfMonth.getMonth() + 2);
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - daysFromMonday - 7); // Include previous week for buffer
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 21); // 3 weeks total (prev + current + next)
 
   // Get user's assigned locations (via LocationStaff)
   const currentUser = await prisma.user.findUnique({
@@ -100,7 +102,7 @@ async function getScheduleData(organizationId: string, userId: string, role: str
     prisma.shift.findMany({
       where: {
         organizationId,
-        startTime: { gte: startOfMonth, lt: endOfMonth },
+        startTime: { gte: startOfWeek, lt: endOfWeek },
         ...locationFilter,
       },
       include: {
@@ -155,9 +157,9 @@ async function getScheduleData(organizationId: string, userId: string, role: str
         user: { organizationId },
         status: "APPROVED",
         OR: [
-          { startDate: { gte: startOfMonth, lt: endOfMonth } },
-          { endDate: { gte: startOfMonth, lt: endOfMonth } },
-          { AND: [{ startDate: { lt: startOfMonth } }, { endDate: { gte: endOfMonth } }] },
+          { startDate: { gte: startOfWeek, lt: endOfWeek } },
+          { endDate: { gte: startOfWeek, lt: endOfWeek } },
+          { AND: [{ startDate: { lt: startOfWeek } }, { endDate: { gte: endOfWeek } }] },
         ],
       },
       select: {
@@ -175,9 +177,9 @@ async function getScheduleData(organizationId: string, userId: string, role: str
         organizationId,
         isActive: true,
         OR: [
-          { startTime: { gte: startOfMonth, lt: endOfMonth } },
-          { endTime: { gte: startOfMonth, lt: endOfMonth } },
-          { AND: [{ startTime: { lt: startOfMonth } }, { endTime: { gte: endOfMonth } }] },
+          { startTime: { gte: startOfWeek, lt: endOfWeek } },
+          { endTime: { gte: startOfWeek, lt: endOfWeek } },
+          { AND: [{ startTime: { lt: startOfWeek } }, { endTime: { gte: endOfWeek } }] },
         ],
         ...eventLocationFilter,
       },
@@ -265,69 +267,25 @@ export default async function SchedulePage({ searchParams }: SchedulePageProps) 
   const showAllOption = isAdmin || (isManager && userLocations.length > 1);
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Schedule</h1>
-          <p className="text-muted-foreground mt-1">
-            {isManager
-              ? "Manage and assign shifts for your team"
-              : "View your upcoming shifts"}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {showLocationDropdown && (isAdmin || isManager || userLocations.length > 0) && (
-            <LocationScheduleFilter
-              locations={dropdownLocations}
-              currentLocationId={currentLocationId || (showAllOption ? "all" : dropdownLocations[0]?.id || "")}
-              showAllOption={showAllOption}
-            />
-          )}
-          {isManager && (
-            <>
-              <CreateEventDialog
-                locations={isAdmin ? allOrgLocations : userLocations}
-                defaultLocationId={currentLocationId}
-              />
-              <CreateShiftDialog
-                users={users}
-                breakRules={breakRules}
-                locations={isAdmin ? allOrgLocations : userLocations}
-                defaultLocationId={currentLocationId}
-              />
-            </>
-          )}
-        </div>
-      </div>
-
-      {!isAdmin && !isManager && userLocationIds.length === 0 && allOrgLocations.length > 0 && (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-          You haven't been assigned to any locations yet. Contact your admin to be assigned.
-        </div>
-      )}
-
-      {/* Forecast Card for Managers */}
-      {isManager && (
-        <div className="mb-4 max-w-sm">
-          <WeeklyForecastCard locationId={currentLocationId} />
-        </div>
-      )}
-
-      <ScheduleGridWithDnd
-        shifts={shifts}
-        users={users}
-        currentUserId={session.user.id}
-        isManager={isManager}
-        availability={availability}
-        locationId={currentLocationId}
-        showSidebar={isManager}
-        categories={categories}
-        locations={isAdmin ? allOrgLocations : userLocations}
-        holidays={holidays}
-        events={events}
-        breakRules={breakRules}
-        breakCalculationMode={breakCalculationMode}
-      />
-    </div>
+    <SchedulePageContent
+      initialShifts={shifts}
+      users={users}
+      currentUserId={session.user.id}
+      isManager={isManager}
+      isAdmin={isAdmin}
+      availability={availability}
+      currentLocationId={currentLocationId}
+      userLocationIds={userLocationIds}
+      allOrgLocations={allOrgLocations}
+      userLocations={userLocations}
+      showLocationDropdown={showLocationDropdown}
+      dropdownLocations={dropdownLocations}
+      showAllOption={showAllOption}
+      categories={categories}
+      holidays={holidays}
+      events={events}
+      breakRules={breakRules}
+      breakCalculationMode={breakCalculationMode}
+    />
   );
 }

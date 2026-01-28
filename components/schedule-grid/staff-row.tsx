@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { memo } from "react";
 import { cn, isSameDay } from "@/lib/utils";
 import { GripVertical } from "lucide-react";
 import { ShiftCard } from "./shift-card";
@@ -37,7 +37,7 @@ interface StaffRowProps {
   rowStyle?: React.CSSProperties;
 }
 
-export function StaffRow({
+export const StaffRow = memo(function StaffRow({
   user,
   currentUserId,
   isManager,
@@ -184,4 +184,4 @@ export function StaffRow({
         : renderDateCell(currentDate, null)}
     </tr>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Plus, CalendarDays, GripVertical } from "lucide-react";
 import { cn, isSameDay } from "@/lib/utils";
@@ -147,107 +147,180 @@ export function ScheduleGrid({
   const today = new Date();
   const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-  // --- Data lookup helpers ---
+  // --- Memoized data lookup maps for O(1) access ---
 
-  const getShiftsForUserAndDate = (userId: string | null, date: Date) => {
-    return shifts.filter((shift) => {
+  // Helper to get date string key
+  const getDateKey = useCallback((date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  // Pre-compute shifts map: Map<"userId-dateStr", Shift[]>
+  const shiftsMap = useMemo(() => {
+    const map = new Map<string, Shift[]>();
+    const openShiftsMap = new Map<string, Shift[]>();
+
+    shifts.forEach((shift) => {
       const shiftDate = new Date(shift.startTime);
-      const sameDay = isSameDay(shiftDate, date);
-      if (userId === null) {
-        return sameDay && shift.isOpen;
+      const dateStr = getDateKey(shiftDate);
+
+      if (shift.isOpen) {
+        const openKey = `open-${dateStr}`;
+        if (!openShiftsMap.has(openKey)) openShiftsMap.set(openKey, []);
+        openShiftsMap.get(openKey)!.push(shift);
       }
-      return sameDay && shift.assignedTo?.id === userId;
+
+      if (shift.assignedTo?.id) {
+        const key = `${shift.assignedTo.id}-${dateStr}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(shift);
+      }
     });
-  };
 
-  const getOpenShiftsForDate = (date: Date) => {
-    return shifts.filter((shift) => {
-      const shiftDate = new Date(shift.startTime);
-      return isSameDay(shiftDate, date) && shift.isOpen;
+    // Merge open shifts into the main map
+    openShiftsMap.forEach((shifts, key) => {
+      map.set(key, shifts);
     });
-  };
 
-  const isUserAvailable = (userId: string, date: Date) => {
-    const dayOfWeek = date.getDay();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const dateStr = `${year}-${month}-${day}`;
+    return map;
+  }, [shifts, getDateKey]);
 
-    const specificAvail = availability.find(
-      (a) =>
-        a.userId === userId &&
-        !a.isRecurring &&
-        a.specificDate?.split("T")[0] === dateStr
-    );
-    if (specificAvail) return true;
+  // Pre-compute availability maps for O(1) lookups
+  const availabilityMaps = useMemo(() => {
+    const specificMap = new Map<string, boolean>(); // "userId-dateStr" -> true
+    const recurringMap = new Map<string, boolean>(); // "userId-dayOfWeek" -> true
 
-    const recurringAvail = availability.find(
-      (a) => a.userId === userId && a.isRecurring && a.dayOfWeek === dayOfWeek
-    );
-    return !!recurringAvail;
-  };
-
-  const getUserHolidayForDate = (userId: string, date: Date): Holiday | null => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const dateStr = `${year}-${month}-${day}`;
-
-    return (
-      holidays.find((h) => {
-        if (h.userId !== userId) return false;
-        const start = h.startDate.split("T")[0];
-        const end = h.endDate.split("T")[0];
-        return dateStr >= start && dateStr <= end;
-      }) || null
-    );
-  };
-
-  const getEventsForDate = (date: Date): Event[] => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const dateStr = `${year}-${month}-${day}`;
-
-    return events.filter((event) => {
-      const eventStart = event.startTime.split("T")[0];
-      const eventEnd = event.endTime.split("T")[0];
-      return dateStr >= eventStart && dateStr <= eventEnd;
+    availability.forEach((a) => {
+      if (!a.isRecurring && a.specificDate) {
+        const dateStr = a.specificDate.split("T")[0];
+        specificMap.set(`${a.userId}-${dateStr}`, true);
+      } else if (a.isRecurring) {
+        recurringMap.set(`${a.userId}-${a.dayOfWeek}`, true);
+      }
     });
-  };
 
-  const getTotalHoursForUser = (userId: string) => {
-    let totalMinutes = 0;
+    return { specificMap, recurringMap };
+  }, [availability]);
 
-    if (breakCalculationMode === "PER_DAY") {
-      orderedWeekDates.forEach((date) => {
-        const userShifts = getShiftsForUserAndDate(userId, date);
-        let dayMinutes = 0;
-        userShifts.forEach((shift) => {
-          const start = new Date(shift.startTime);
-          const end = new Date(shift.endTime);
-          dayMinutes += (end.getTime() - start.getTime()) / (1000 * 60);
-        });
-        if (dayMinutes > 0) {
-          const dayHours = dayMinutes / 60;
-          const dayBreakMinutes = calculateBreakMinutes(dayHours, breakRules);
-          totalMinutes += dayMinutes - dayBreakMinutes;
-        }
-      });
-    } else {
-      orderedWeekDates.forEach((date) => {
-        const userShifts = getShiftsForUserAndDate(userId, date);
-        userShifts.forEach((shift) => {
-          const start = new Date(shift.startTime);
-          const end = new Date(shift.endTime);
-          const breakMins = shift.scheduledBreakMinutes || 0;
-          totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60) - breakMins;
-        });
-      });
+  // Pre-compute holidays map: Map<userId, Holiday[]>
+  const holidaysMap = useMemo(() => {
+    const map = new Map<string, Holiday[]>();
+    holidays.forEach((h) => {
+      if (!map.has(h.userId)) map.set(h.userId, []);
+      map.get(h.userId)!.push(h);
+    });
+    return map;
+  }, [holidays]);
+
+  // Pre-compute events by date for O(1) lookups
+  const eventsMap = useMemo(() => {
+    const map = new Map<string, Event[]>();
+    events.forEach((event) => {
+      // Events can span multiple days, so we need to add them to each day they cover
+      const startDate = new Date(event.startTime.split("T")[0]);
+      const endDate = new Date(event.endTime.split("T")[0]);
+
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = getDateKey(d);
+        if (!map.has(dateStr)) map.set(dateStr, []);
+        map.get(dateStr)!.push(event);
+      }
+    });
+    return map;
+  }, [events, getDateKey]);
+
+  // --- Memoized lookup functions ---
+
+  const getShiftsForUserAndDate = useCallback((userId: string | null, date: Date) => {
+    const dateStr = getDateKey(date);
+    if (userId === null) {
+      return shiftsMap.get(`open-${dateStr}`) || [];
     }
-    return (totalMinutes / 60).toFixed(2);
-  };
+    return shiftsMap.get(`${userId}-${dateStr}`) || [];
+  }, [shiftsMap, getDateKey]);
+
+  const getOpenShiftsForDate = useCallback((date: Date) => {
+    const dateStr = getDateKey(date);
+    return shiftsMap.get(`open-${dateStr}`) || [];
+  }, [shiftsMap, getDateKey]);
+
+  const isUserAvailable = useCallback((userId: string, date: Date) => {
+    const dateStr = getDateKey(date);
+    const dayOfWeek = date.getDay();
+
+    // Check specific date availability first
+    if (availabilityMaps.specificMap.has(`${userId}-${dateStr}`)) {
+      return true;
+    }
+
+    // Check recurring availability
+    return availabilityMaps.recurringMap.has(`${userId}-${dayOfWeek}`);
+  }, [availabilityMaps, getDateKey]);
+
+  const getUserHolidayForDate = useCallback((userId: string, date: Date): Holiday | null => {
+    const dateStr = getDateKey(date);
+    const userHolidays = holidaysMap.get(userId);
+    if (!userHolidays) return null;
+
+    return userHolidays.find((h) => {
+      const start = h.startDate.split("T")[0];
+      const end = h.endDate.split("T")[0];
+      return dateStr >= start && dateStr <= end;
+    }) || null;
+  }, [holidaysMap, getDateKey]);
+
+  const getEventsForDate = useCallback((date: Date): Event[] => {
+    const dateStr = getDateKey(date);
+    return eventsMap.get(dateStr) || [];
+  }, [eventsMap, getDateKey]);
+
+  // Pre-compute total hours for all users
+  const userTotalHoursMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    users.forEach((user) => {
+      let totalMinutes = 0;
+
+      if (breakCalculationMode === "PER_DAY") {
+        orderedWeekDates.forEach((date) => {
+          const dateStr = getDateKey(date);
+          const userShifts = shiftsMap.get(`${user.id}-${dateStr}`) || [];
+          let dayMinutes = 0;
+          userShifts.forEach((shift) => {
+            const start = new Date(shift.startTime);
+            const end = new Date(shift.endTime);
+            dayMinutes += (end.getTime() - start.getTime()) / (1000 * 60);
+          });
+          if (dayMinutes > 0) {
+            const dayHours = dayMinutes / 60;
+            const dayBreakMinutes = calculateBreakMinutes(dayHours, breakRules);
+            totalMinutes += dayMinutes - dayBreakMinutes;
+          }
+        });
+      } else {
+        orderedWeekDates.forEach((date) => {
+          const dateStr = getDateKey(date);
+          const userShifts = shiftsMap.get(`${user.id}-${dateStr}`) || [];
+          userShifts.forEach((shift) => {
+            const start = new Date(shift.startTime);
+            const end = new Date(shift.endTime);
+            const breakMins = shift.scheduledBreakMinutes || 0;
+            totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60) - breakMins;
+          });
+        });
+      }
+
+      map.set(user.id, (totalMinutes / 60).toFixed(2));
+    });
+
+    return map;
+  }, [users, orderedWeekDates, shiftsMap, breakCalculationMode, breakRules, getDateKey]);
+
+  const getTotalHoursForUser = useCallback((userId: string) => {
+    return userTotalHoursMap.get(userId) || "0.00";
+  }, [userTotalHoursMap]);
 
   // --- Event handlers ---
 

@@ -120,7 +120,7 @@ interface ScheduleGridWithDndProps {
 }
 
 export function ScheduleGridWithDnd({
-  shifts,
+  shifts: initialShifts,
   users,
   currentUserId,
   isManager,
@@ -143,6 +143,9 @@ export function ScheduleGridWithDnd({
   const [dropDate, setDropDate] = useState<Date | null>(null);
   const [dropUserId, setDropUserId] = useState<string | null>(null);
 
+  // Local state for shifts - enables optimistic updates
+  const [localShifts, setLocalShifts] = useState<Shift[]>(initialShifts);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -150,6 +153,28 @@ export function ScheduleGridWithDnd({
   useEffect(() => {
     setSortedUsers(users);
   }, [users]);
+
+  // Sync with server data when it changes (e.g., after navigation)
+  useEffect(() => {
+    setLocalShifts(initialShifts);
+  }, [initialShifts]);
+
+  // Callback for optimistic shift creation
+  const handleShiftCreated = useCallback((newShift: Shift) => {
+    setLocalShifts((prev) => [...prev, newShift]);
+  }, []);
+
+  // Callback to update a shift (e.g., replace temp ID with server ID)
+  const handleShiftUpdated = useCallback((tempId: string, serverShift: Shift) => {
+    setLocalShifts((prev) =>
+      prev.map((shift) => (shift.id === tempId ? serverShift : shift))
+    );
+  }, []);
+
+  // Callback to rollback a failed optimistic update
+  const handleShiftRollback = useCallback((tempId: string) => {
+    setLocalShifts((prev) => prev.filter((shift) => shift.id !== tempId));
+  }, []);
 
   const mouseSensor = useSensor(MouseSensor, {
     activationConstraint: {
@@ -249,7 +274,7 @@ export function ScheduleGridWithDnd({
   if (!isManager || !mounted) {
     return (
       <ScheduleGrid
-        shifts={shifts}
+        shifts={localShifts}
         users={users}
         currentUserId={currentUserId}
         isManager={isManager}
@@ -281,7 +306,7 @@ export function ScheduleGridWithDnd({
             strategy={verticalListSortingStrategy}
           >
             <ScheduleGrid
-              shifts={shifts}
+              shifts={localShifts}
               users={sortedUsers}
               currentUserId={currentUserId}
               isManager={isManager}
@@ -317,6 +342,9 @@ export function ScheduleGridWithDnd({
         locationId={locationId}
         defaultUserId={dropUserId}
         onSuccess={handleQuickAssignSuccess}
+        onShiftCreated={handleShiftCreated}
+        onShiftConfirmed={handleShiftUpdated}
+        onShiftRollback={handleShiftRollback}
       />
     </DndContext>
   );

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -46,6 +45,19 @@ interface CertificationWarning {
   expiredCertifications: { id: string; name: string }[];
 }
 
+interface Shift {
+  id: string;
+  title: string;
+  description: string | null;
+  startTime: Date;
+  endTime: Date;
+  status: string;
+  isOpen: boolean;
+  scheduledBreakMinutes?: number;
+  assignedTo: { id: string; name: string; email: string } | null;
+  category?: ShiftCategory | null;
+}
+
 interface QuickAssignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -55,6 +67,9 @@ interface QuickAssignDialogProps {
   locationId?: string | null;
   defaultUserId?: string | null;
   onSuccess?: () => void;
+  onShiftCreated?: (shift: Shift) => void;
+  onShiftConfirmed?: (tempId: string, serverShift: Shift) => void;
+  onShiftRollback?: (tempId: string) => void;
 }
 
 export function QuickAssignDialog({
@@ -66,8 +81,10 @@ export function QuickAssignDialog({
   locationId,
   defaultUserId,
   onSuccess,
+  onShiftCreated,
+  onShiftConfirmed,
+  onShiftRollback,
 }: QuickAssignDialogProps) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assignedToId, setAssignedToId] = useState("");
@@ -114,17 +131,48 @@ export function QuickAssignDialog({
     setLoading(true);
     setError(null);
 
+    // Build the datetime from date and template times
+    const dateStr = targetDate.toISOString().split("T")[0];
+    const startDateTime = new Date(`${dateStr}T${template.startTime}`);
+    const endDateTime = new Date(`${dateStr}T${template.endTime}`);
+
+    // Handle overnight shifts
+    if (endDateTime <= startDateTime) {
+      endDateTime.setDate(endDateTime.getDate() + 1);
+    }
+
+    // Find the assigned user info for the optimistic update
+    const assignedUser = assignedToId
+      ? users.find((u) => u.id === assignedToId)
+      : null;
+
+    // Generate a temporary ID for optimistic update
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create optimistic shift
+    const optimisticShift: Shift = {
+      id: tempId,
+      title: template.defaultTitle || template.name,
+      description: null,
+      startTime: startDateTime,
+      endTime: endDateTime,
+      status: "SCHEDULED",
+      isOpen: !assignedToId,
+      assignedTo: assignedUser
+        ? { id: assignedUser.id, name: assignedUser.name, email: assignedUser.email }
+        : null,
+      category: template.category || null,
+      scheduledBreakMinutes: 0,
+    };
+
+    // Optimistically add the shift
+    onShiftCreated?.(optimisticShift);
+
+    // Close the dialog immediately for better UX
+    onOpenChange(false);
+    onSuccess?.();
+
     try {
-      // Build the datetime from date and template times
-      const dateStr = targetDate.toISOString().split("T")[0];
-      const startDateTime = new Date(`${dateStr}T${template.startTime}`);
-      const endDateTime = new Date(`${dateStr}T${template.endTime}`);
-
-      // Handle overnight shifts
-      if (endDateTime <= startDateTime) {
-        endDateTime.setDate(endDateTime.getDate() + 1);
-      }
-
       const res = await fetch("/api/shifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,15 +189,25 @@ export function QuickAssignDialog({
 
       if (!res.ok) {
         const data = await res.json();
+        // Rollback the optimistic update
+        onShiftRollback?.(tempId);
         setError(data.error || "Failed to create shift");
+        onOpenChange(true); // Reopen dialog to show error
         return;
       }
 
-      onOpenChange(false);
-      onSuccess?.();
-      router.refresh();
+      const serverShift = await res.json();
+      // Confirm the optimistic update with server data
+      onShiftConfirmed?.(tempId, {
+        ...serverShift,
+        startTime: new Date(serverShift.startTime),
+        endTime: new Date(serverShift.endTime),
+      });
     } catch (err) {
+      // Rollback the optimistic update
+      onShiftRollback?.(tempId);
       setError("Failed to create shift");
+      onOpenChange(true); // Reopen dialog to show error
     } finally {
       setLoading(false);
     }
