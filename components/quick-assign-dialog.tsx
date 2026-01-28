@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -128,7 +129,6 @@ export function QuickAssignDialog({
     e.preventDefault();
     if (!template || !targetDate) return;
 
-    setLoading(true);
     setError(null);
 
     // Build the datetime from date and template times
@@ -165,11 +165,13 @@ export function QuickAssignDialog({
       scheduledBreakMinutes: 0,
     };
 
-    // Optimistically add the shift
-    onShiftCreated?.(optimisticShift);
-
-    // Close the dialog immediately for better UX
-    onOpenChange(false);
+    // Use flushSync to force immediate DOM updates
+    flushSync(() => {
+      onOpenChange(false);
+    });
+    flushSync(() => {
+      onShiftCreated?.(optimisticShift);
+    });
     onSuccess?.();
 
     try {
@@ -209,7 +211,7 @@ export function QuickAssignDialog({
       setError("Failed to create shift");
       onOpenChange(true); // Reopen dialog to show error
     } finally {
-      setLoading(false);
+      setLoading(false); // Reset for next open
     }
   };
 
