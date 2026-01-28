@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -206,13 +205,9 @@ export function CreateShiftDialog({
     // Save form data before resetting
     const savedFormData = { ...formData };
 
-    // Use flushSync to force immediate DOM updates - no batching delays
-    flushSync(() => {
-      setOpen(false);
-    });
-    flushSync(() => {
-      onShiftCreated?.(optimisticShift);
-    });
+    // Add shift first, then close dialog
+    onShiftCreated?.(optimisticShift);
+    setOpen(false);
     setFormData({
       title: "",
       description: "",

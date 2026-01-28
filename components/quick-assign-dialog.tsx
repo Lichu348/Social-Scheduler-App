@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -165,13 +164,9 @@ export function QuickAssignDialog({
       scheduledBreakMinutes: 0,
     };
 
-    // Use flushSync to force immediate DOM updates
-    flushSync(() => {
-      onOpenChange(false);
-    });
-    flushSync(() => {
-      onShiftCreated?.(optimisticShift);
-    });
+    // Add shift first, then close dialog
+    onShiftCreated?.(optimisticShift);
+    onOpenChange(false);
     onSuccess?.();
 
     try {
