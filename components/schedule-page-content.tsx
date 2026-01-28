@@ -207,6 +207,9 @@ export function SchedulePageContent({
         events={events}
         breakRules={breakRules}
         breakCalculationMode={breakCalculationMode}
+        onShiftCreated={handleShiftCreated}
+        onShiftConfirmed={handleShiftConfirmed}
+        onShiftRollback={handleShiftRollback}
       />
     </div>
   );
