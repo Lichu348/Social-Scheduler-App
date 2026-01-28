@@ -268,6 +268,9 @@ export function ScheduleGridWithDnd({
         events={events}
         breakRules={breakRules}
         breakCalculationMode={breakCalculationMode}
+        onShiftCreated={onShiftCreated}
+        onShiftConfirmed={onShiftConfirmed}
+        onShiftRollback={onShiftRollback}
       />
     );
   }
@@ -302,6 +305,9 @@ export function ScheduleGridWithDnd({
               events={events}
               breakRules={breakRules}
               breakCalculationMode={breakCalculationMode}
+              onShiftCreated={onShiftCreated}
+              onShiftConfirmed={onShiftConfirmed}
+              onShiftRollback={onShiftRollback}
             />
           </SortableContext>
         </div>

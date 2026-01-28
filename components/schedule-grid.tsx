@@ -119,6 +119,9 @@ export function ScheduleGrid({
   events = [],
   breakRules = "[]",
   breakCalculationMode = "PER_SHIFT",
+  onShiftCreated,
+  onShiftConfirmed,
+  onShiftRollback,
 }: ScheduleGridProps) {
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -611,6 +614,9 @@ export function ScheduleGrid({
           users={users}
           locationId={locationId}
           onClose={() => setQuickAddData(null)}
+          onShiftCreated={onShiftCreated}
+          onShiftConfirmed={onShiftConfirmed}
+          onShiftRollback={onShiftRollback}
         />
       )}
 

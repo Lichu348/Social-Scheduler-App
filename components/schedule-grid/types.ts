@@ -87,6 +87,9 @@ export interface ScheduleGridProps {
   events?: Event[];
   breakRules?: string;
   breakCalculationMode?: string;
+  onShiftCreated?: (shift: Shift) => void;
+  onShiftConfirmed?: (tempId: string, serverShift: Shift) => void;
+  onShiftRollback?: (tempId: string) => void;
 }
 
 // Calculate break minutes based on break rules and hours worked

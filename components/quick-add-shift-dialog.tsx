@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,12 +27,28 @@ interface ShiftCategory {
   color: string;
 }
 
+interface Shift {
+  id: string;
+  title: string;
+  description: string | null;
+  startTime: Date;
+  endTime: Date;
+  status: string;
+  isOpen: boolean;
+  scheduledBreakMinutes?: number;
+  assignedTo: { id: string; name: string; email: string } | null;
+  category?: ShiftCategory | null;
+}
+
 interface QuickAddShiftDialogProps {
   date: Date;
   userId: string | null;
   users: User[];
   locationId?: string | null;
   onClose: () => void;
+  onShiftCreated?: (shift: Shift) => void;
+  onShiftConfirmed?: (tempId: string, serverShift: Shift) => void;
+  onShiftRollback?: (tempId: string) => void;
 }
 
 export function QuickAddShiftDialog({
@@ -42,8 +57,10 @@ export function QuickAddShiftDialog({
   users,
   locationId,
   onClose,
+  onShiftCreated,
+  onShiftConfirmed,
+  onShiftRollback,
 }: QuickAddShiftDialogProps) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ShiftCategory[]>([]);
@@ -72,17 +89,47 @@ export function QuickAddShiftDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
+    const dateStr = date.toISOString().split("T")[0];
+    const startDateTime = new Date(`${dateStr}T${formData.startTime}`);
+    const endDateTime = new Date(`${dateStr}T${formData.endTime}`);
+
+    // Auto-generate title if empty
+    const title = formData.title || `${formData.startTime.replace(":", "")} Shift`;
+
+    // Find assigned user for optimistic update
+    const assignedUser = formData.assignedToId
+      ? users.find((u) => u.id === formData.assignedToId)
+      : null;
+    const selectedCategory = formData.categoryId
+      ? categories.find((c) => c.id === formData.categoryId)
+      : null;
+
+    // Generate temp ID for optimistic update
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create optimistic shift
+    const optimisticShift: Shift = {
+      id: tempId,
+      title,
+      description: null,
+      startTime: startDateTime,
+      endTime: endDateTime,
+      status: "SCHEDULED",
+      isOpen: !formData.assignedToId,
+      assignedTo: assignedUser
+        ? { id: assignedUser.id, name: assignedUser.name, email: assignedUser.email }
+        : null,
+      category: selectedCategory || null,
+      scheduledBreakMinutes: 0,
+    };
+
+    // Add shift and close immediately
+    onShiftCreated?.(optimisticShift);
+    onClose();
+
     try {
-      const dateStr = date.toISOString().split("T")[0];
-      const startDateTime = new Date(`${dateStr}T${formData.startTime}`);
-      const endDateTime = new Date(`${dateStr}T${formData.endTime}`);
-
-      // Auto-generate title if empty
-      const title = formData.title || `${formData.startTime.replace(":", "")} Shift`;
-
       const res = await fetch("/api/shifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -99,16 +146,19 @@ export function QuickAddShiftDialog({
       const data = await res.json();
 
       if (res.ok) {
-        router.refresh();
-        onClose();
+        onShiftConfirmed?.(tempId, {
+          ...data,
+          startTime: new Date(data.startTime),
+          endTime: new Date(data.endTime),
+        });
       } else {
+        onShiftRollback?.(tempId);
         setError(data.error || "Failed to create shift");
       }
     } catch (error) {
       console.error("Failed to create shift:", error);
+      onShiftRollback?.(tempId);
       setError("Failed to create shift");
-    } finally {
-      setLoading(false);
     }
   };
 
