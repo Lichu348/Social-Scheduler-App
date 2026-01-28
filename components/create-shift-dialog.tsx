@@ -170,7 +170,6 @@ export function CreateShiftDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
     const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
@@ -203,12 +202,12 @@ export function CreateShiftDialog({
       scheduledBreakMinutes: scheduledBreak,
     };
 
-    // Optimistically add the shift
-    onShiftCreated?.(optimisticShift);
-
-    // Close the dialog and reset form immediately for better UX
-    setOpen(false);
+    // Save form data before resetting
     const savedFormData = { ...formData };
+
+    // Close dialog and add shift immediately - no loading state needed for optimistic updates
+    setOpen(false);
+    onShiftCreated?.(optimisticShift);
     setFormData({
       title: "",
       description: "",
@@ -220,6 +219,7 @@ export function CreateShiftDialog({
       locationId: defaultLocationId || "",
     });
 
+    // API call happens in background
     try {
       const res = await fetch("/api/shifts", {
         method: "POST",
@@ -245,23 +245,18 @@ export function CreateShiftDialog({
           endTime: new Date(data.endTime),
         });
       } else {
-        // Rollback the optimistic update
+        // Rollback the optimistic update and show error
         onShiftRollback?.(tempId);
         setError(data.error || "Failed to create shift. Please try logging out and back in.");
-        // Restore form data and reopen dialog
         setFormData(savedFormData);
         setOpen(true);
       }
     } catch (error) {
       console.error("Failed to create shift:", error);
-      // Rollback the optimistic update
       onShiftRollback?.(tempId);
       setError("Failed to create shift. Please try again.");
-      // Restore form data and reopen dialog
       setFormData(savedFormData);
       setOpen(true);
-    } finally {
-      setLoading(false);
     }
   };
 
