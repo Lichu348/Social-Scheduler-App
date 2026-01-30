@@ -3,7 +3,7 @@ import { hash } from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
-import { sendEmail, passwordResetEmail } from "@/lib/email";
+import { sendEmail, welcomeCredentialsEmail } from "@/lib/email";
 
 // Generate a random temporary password
 function generateTempPassword(): string {
@@ -25,23 +25,14 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only admins can reset passwords
+    // Only admins can send credentials
     if (session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
 
-    // Parse request body for options
-    let sendEmailOption = false;
-    try {
-      const body = await req.json();
-      sendEmailOption = body?.sendEmail === true;
-    } catch {
-      // No body or invalid JSON, defaults apply
-    }
-
-    // Get the user to reset password for
+    // Get the user to send credentials to
     const user = await prisma.user.findUnique({
       where: { id },
       select: { id: true, name: true, email: true, organizationId: true },
@@ -51,10 +42,10 @@ export async function POST(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Can't reset your own password this way - use settings page instead
+    // Can't send to yourself
     if (id === session.user.id) {
       return NextResponse.json(
-        { error: "Cannot reset your own password. Use the settings page instead." },
+        { error: "Cannot send credentials to yourself." },
         { status: 400 }
       );
     }
@@ -78,45 +69,44 @@ export async function POST(
     // Create a notification for the user
     await createNotification({
       userId: id,
-      type: "PASSWORD_RESET",
-      title: "Password Reset",
-      message: "Your password has been reset by an administrator. Please use the temporary password provided and change it after logging in.",
+      type: "CREDENTIALS_SENT",
+      title: "Login Credentials Sent",
+      message: "Your login credentials have been sent to your email. Please check your inbox and change your password after logging in.",
       link: "/dashboard/settings",
     });
 
-    // Send email if requested
-    let emailSent = false;
-    if (sendEmailOption) {
-      const loginUrl = `${process.env.NEXTAUTH_URL || "https://app.example.com"}/login`;
-      const emailContent = passwordResetEmail({
-        employeeName: user.name,
-        email: user.email,
-        tempPassword,
-        loginUrl,
-        organizationName: organization?.name || "Your Organization",
-      });
+    // Send the welcome email with credentials
+    const loginUrl = `${process.env.NEXTAUTH_URL || "https://app.example.com"}/login`;
+    const emailContent = welcomeCredentialsEmail({
+      employeeName: user.name,
+      email: user.email,
+      tempPassword,
+      loginUrl,
+      organizationName: organization?.name || "Your Organization",
+    });
 
-      const result = await sendEmail({
-        to: user.email,
-        subject: emailContent.subject,
-        html: emailContent.html,
-        text: emailContent.text,
-      });
-      emailSent = result.success;
+    const result = await sendEmail({
+      to: user.email,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text,
+    });
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: "Failed to send email. Please try again." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
-      tempPassword: sendEmailOption ? undefined : tempPassword, // Don't return password if emailed
-      emailSent,
-      message: sendEmailOption
-        ? `Password reset and emailed to ${user.email}`
-        : `Password reset for ${user.name}. Share this temporary password securely.`,
+      message: `Login credentials sent to ${user.email}`,
     });
   } catch (error) {
-    console.error("Reset password error:", error);
+    console.error("Send credentials error:", error);
     return NextResponse.json(
-      { error: "Failed to reset password" },
+      { error: "Failed to send credentials" },
       { status: 500 }
     );
   }

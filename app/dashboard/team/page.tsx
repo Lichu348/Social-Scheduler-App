@@ -13,6 +13,7 @@ import { PaymentTypeSelector } from "@/components/payment-type-selector";
 import { EditUserDialog } from "@/components/edit-user-dialog";
 import { HolidayAllowanceDialog } from "@/components/holiday-allowance-dialog";
 import { ResetPasswordDialog } from "@/components/reset-password-dialog";
+import { SendCredentialsDialog } from "@/components/send-credentials-dialog";
 import { StarterFormStatusBadge } from "@/components/starter-form-status-badge";
 import { ViewStarterFormDialog } from "@/components/view-starter-form-dialog";
 import { LocationScheduleFilter } from "@/components/location-schedule-filter";
@@ -431,6 +432,14 @@ export default async function TeamPage({ searchParams }: TeamPageProps) {
                       <ResetPasswordDialog
                         userId={user.id}
                         userName={user.name}
+                        userEmail={user.email}
+                      />
+                    )}
+                    {isAdmin && user.id !== session.user.id && (
+                      <SendCredentialsDialog
+                        userId={user.id}
+                        userName={user.name}
+                        userEmail={user.email}
                       />
                     )}
                     {isManager && user.id !== session.user.id && (
